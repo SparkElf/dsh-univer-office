@@ -1,6 +1,6 @@
 # DeepSeek Harness (DSH) × Univer 插件
 
-> **DeepSeek Harness 中的 Univer 办公运行时窗口。** The DeepSeek Harness window into Univer's office runtime.
+> **DeepSeek Harness 中的 Univer 办公运行时窗口。**
 
 [English](README.md) · [中文](README.zh-CN.md)
 

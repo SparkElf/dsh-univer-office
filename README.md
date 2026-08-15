@@ -1,6 +1,6 @@
 # DeepSeek Harness (DSH) × Univer Plugin
 
-> **The DeepSeek Harness window into Univer's office runtime.** 办公文件，就在对话里。
+> **The DeepSeek Harness window into Univer's office runtime.**
 
 [English](README.md) · [中文](README.zh-CN.md)
 
