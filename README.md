@@ -1,13 +1,15 @@
-# DSH × Univer Plugin
+# DeepSeek Harness (DSH) × Univer Plugin
+
+> **The DeepSeek Harness window into Univer's office runtime.** 办公文件，就在对话里。
 
 [English](README.md) · [中文](README.zh-CN.md)
 
-Preview Univer spreadsheets (and other units) directly inside DeepSeek Harness: after a turn that runs `univer` commands, a preview card automatically appears at the turn's tail — click it to expand fullscreen in-app, no browser or manual server needed.
+Preview Univer office files (sheets, docs, slides, bases) directly inside DeepSeek Harness: after a turn that runs `univer` commands, a preview card automatically appears at the turn's tail — click it to expand fullscreen in-app, no browser or manual server needed.
 
 ```
 ┌────────────────────────────────────────┐
-│ 📊 销售表格.univer  [wt-xxx]  [展开预览 ▾] │  ← card at the turn tail
-│ /Users/.../销售表格.univer              │
+│ 📊 sales.univer  [wt-xxx]  [Expand ▾]  │  ← card at the turn tail
+│ /Users/.../sales.univer                │
 └────────────────────────────────────────┘
 ```
 

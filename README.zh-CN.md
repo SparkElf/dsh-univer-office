@@ -1,8 +1,10 @@
-# DSH × Univer 插件
+# DeepSeek Harness (DSH) × Univer 插件
+
+> **DeepSeek Harness 中的 Univer 办公运行时窗口。** The DeepSeek Harness window into Univer's office runtime.
 
 [English](README.md) · [中文](README.zh-CN.md)
 
-在 DeepSeek Harness 应用内直接预览 Univer 表格：跑过 univer 命令的回合会自动出现预览卡片，点击即在应用内全屏展开 —— 无需浏览器、无需手动起服务。
+在 DeepSeek Harness（简称 DSH）应用内直接预览 Univer 办公文件（表格、文档、幻灯片、Base）：跑过 univer 命令的回合会自动出现预览卡片，点击即在应用内全屏展开 —— 无需浏览器、无需手动起服务。
 
 ```
 ┌────────────────────────────────────────┐
