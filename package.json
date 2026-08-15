@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./lib/index.js",
   "bin": {
-    "univer-dsh": "./scripts/install.js"
+    "univer-dsh": "scripts/install.js"
   },
   "files": [
     "lib",

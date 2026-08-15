@@ -34,7 +34,11 @@
 dsh plugin --profile web add github:dream-num/dsh-univer-plugin
 ```
 
-> npm 发布计划稍后进行；在此之前请使用 git 或本地 checkout 安装。
+### 从 npm 安装
+
+```sh
+dsh plugin --profile web add @univer-cli/dsh-univer-plugin
+```
 
 ### 从本地 checkout 安装（开发用）
 
@@ -95,8 +99,8 @@ bash scripts/build-dist.sh
 无 scope 的裸名 [`dsh-univer-plugin`](https://www.npmjs.com/package/dsh-univer-plugin) 已由本项目预留，用于防 typosquatting（恶意仿冒）——`redirects/dsh-univer-plugin/` 存放占位包（deprecated，指向官方包名），不含任何代码。**请始终安装官方包：**
 
 ```sh
-dsh plugin --profile web add github:dream-num/dsh-univer-plugin   # npm 发布前
-dsh plugin --profile web add @univer-cli/dsh-univer-plugin        # npm 发布后
+dsh plugin --profile web add github:dream-num/dsh-univer-plugin   # 从 git
+dsh plugin --profile web add @univer-cli/dsh-univer-plugin        # 从 npm
 ```
 
 ## 元数据

@@ -34,8 +34,11 @@ This is a standard [DSH bundle](https://github.com/deepseek-ai/deepseek-harness/
 dsh plugin --profile web add github:dream-num/dsh-univer-plugin
 ```
 
-> npm publishing is planned for later; until then install from git or a local
-> checkout.
+### From npm
+
+```sh
+dsh plugin --profile web add @univer-cli/dsh-univer-plugin
+```
 
 ### From a local checkout (development)
 
@@ -99,8 +102,8 @@ Publish the package with `npm publish` (respects the `files` allowlist); attach 
 The unscoped name [`dsh-univer-plugin`](https://www.npmjs.com/package/dsh-univer-plugin) is reserved by this project as a typosquatting guard — `redirects/dsh-univer-plugin/` holds a placeholder package (deprecated, pointing to the official name) that contains no code. **Always install the official package:**
 
 ```sh
-dsh plugin --profile web add github:dream-num/dsh-univer-plugin   # until npm publish
-dsh plugin --profile web add @univer-cli/dsh-univer-plugin        # after npm publish
+dsh plugin --profile web add github:dream-num/dsh-univer-plugin   # from git
+dsh plugin --profile web add @univer-cli/dsh-univer-plugin        # from npm
 ```
 
 ## Metadata
