@@ -1,7 +1,7 @@
 {
   "name": "@univer-cli/dsh-univer-plugin",
-  "version": "0.1.0",
-  "description": "DSH × Univer integration: preview Univer spreadsheets (and other units) inline in DeepSeek Harness — node half manages the univer CLI/daemon, client half renders a preview card at the turn tail with in-app fullscreen viewing.",
+  "version": "0.2.0",
+  "description": "DSH × Univer integration: preview Univer spreadsheets (and other units) inline in DeepSeek Harness — node half manages the univer CLI/daemon and per-file worktree state, client half renders a preview card at the turn tail plus live floating worktree windows and a session-end merge panel.",
   "type": "module",
   "main": "./lib/index.js",
   "bin": {
@@ -27,7 +27,8 @@
     "deepseek-harness",
     "univer",
     "spreadsheet",
-    "preview"
+    "preview",
+    "worktree"
   ],
   "license": "Apache-2.0",
   "repository": {
@@ -47,7 +48,8 @@
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-sidebar"
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-conversation"
       ]
     }
   }
