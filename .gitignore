@@ -1,6 +1,7 @@
 # Generated build artifacts — never commit these.
-# Source lives in lib/, package.json, README*.md, cordis.patch.yml,
-# install.sh, and packaging/; rebuild with: bash scripts/build-dist.sh
+# Source lives under src/. Generated lib/ and the runtime build under vendor/
+# are intentionally versioned for DSH loading and release installs.
 dist/
+node_modules/
 *.tgz
 *.zip

@@ -1,5 +1,5 @@
 #!/bin/bash
-# DSH × Univer plugin one-click installer (macOS / Linux)
+# DSH × Univer plugin source-checkout installer
 # Usage (from a source checkout or release zip): bash install.sh
 set -e
 
@@ -9,11 +9,23 @@ PATCH="$HOME/.dsh/profiles/web/cordis.patch.yml"
 
 echo "📦 Installing DSH × Univer plugin..."
 
-# 1. Assemble the plugin package from source (lib/, manifest, docs, bundle layer).
+# 1. Assemble the plugin package from source (host/client code + bundled Univer artifacts).
 #    dist/ is a generated directory and is not shipped in git — never rely on it.
 mkdir -p "$DEST/lib"
 rm -rf "$DEST/lib"
 cp -R "$DIR/lib/." "$DEST/lib/"
+mkdir -p "$DEST/vendor/collaboration"
+cp -R "$DIR/vendor/collaboration/artifacts" "$DEST/vendor/collaboration/"
+cp "$DIR/vendor/collaboration/README.md" "$DIR/vendor/collaboration/SOURCE.json" "$DEST/vendor/collaboration/"
+mkdir -p "$DEST/vendor/unit-content"
+cp -R "$DIR/vendor/unit-content/artifacts" "$DEST/vendor/unit-content/"
+cp "$DIR/vendor/unit-content/README.md" "$DIR/vendor/unit-content/SOURCE.json" "$DEST/vendor/unit-content/"
+if ! command -v node >/dev/null 2>&1 || [ ! -d "$DIR/node_modules/libsql" ]; then
+  echo "   ❌ Source installer needs this checkout's dependencies. Run pnpm install first,"
+  echo "      or use: dsh plugin --profile web add $DIR"
+  exit 1
+fi
+node "$DIR/scripts/copy-gateway-dependencies.mjs" "$DEST"
 cp "$DIR/package.json" "$DIR/cordis.patch.yml" "$DEST/"
 for doc in "$DIR"/README*.md; do
   [ -f "$doc" ] && cp "$doc" "$DEST/"
@@ -32,28 +44,21 @@ if ! grep -q "name: '@univer-cli/dsh-univer-plugin'" "$PATCH" 2>/dev/null; then
       grep -v '^\[\]$' "$PATCH" > "$PATCH.tmp" && mv "$PATCH.tmp" "$PATCH"
     fi
   fi
-  printf '\n# DSH × Univer integration: CLI/daemon management + preview UI.\n- insert:\n    - id: univer\n      name: '"'"'@univer-cli/dsh-univer-plugin'"'"'\n' >> "$PATCH"
+  printf '\n# DSH × Univer integration: bundled Gateway, Viewer, and preview UI.\n- insert:\n    - id: univer\n      name: '"'"'@univer-cli/dsh-univer-plugin'"'"'\n' >> "$PATCH"
   echo "   ✅ Loader entry written"
 else
   echo "   ✅ Loader entry already present (no duplicate)"
 fi
 
-# 3. Detect the univer CLI
-if command -v univer >/dev/null 2>&1; then
-  VER="$(univer --version 2>/dev/null | head -1)"
-  echo "   ✅ univer CLI found: $VER"
+# 3. Detect the Gateway. Unit content tools are package-local and need no CLI.
+if curl -s -o /dev/null --max-time 2 "http://127.0.0.1:9123/" 2>/dev/null \
+  || curl -s -o /dev/null --max-time 2 "http://127.0.0.1:8000/" 2>/dev/null; then
+  echo "   ✅ Univer Gateway running"
 else
-  echo "   ⚠️  univer CLI not found (needed for preview; install with: npm i -g univer-cli)"
-fi
-
-# 4. Detect the daemon
-if curl -s -o /dev/null --max-time 2 "http://127.0.0.1:8000/" 2>/dev/null; then
-  echo "   ✅ univer daemon running"
-else
-  echo "   ℹ️  daemon not running (it auto-starts when you open a preview)"
+  echo "   ℹ️  bundled Gateway not running (it auto-starts when you open a preview)"
 fi
 
 echo ""
 echo "🎉 Installation complete!"
 echo "👉 Refresh DeepSeek Harness (Cmd+R / Ctrl+R) to use the plugin."
-echo "   Usage: run univer commands in a session; a preview card appears at the turn tail."
+echo "   Usage: ask the agent to use the univer_* tools; a preview card appears at the turn tail."

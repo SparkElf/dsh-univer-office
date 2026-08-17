@@ -38,20 +38,14 @@ if ! grep -q "name: '@univer-cli/dsh-univer-plugin'" "$PATCH" 2>/dev/null; then
       grep -v '^\[\]$' "$PATCH" > "$PATCH.tmp" && mv "$PATCH.tmp" "$PATCH"
     fi
   fi
-  printf '\n# DSH × Univer integration: CLI/daemon management + preview UI.\n- insert:\n    - id: univer\n      name: '"'"'@univer-cli/dsh-univer-plugin'"'"'\n' >> "$PATCH"
+  printf '\n# DSH × Univer integration: bundled Gateway, Viewer, and preview UI.\n- insert:\n    - id: univer\n      name: '"'"'@univer-cli/dsh-univer-plugin'"'"'\n' >> "$PATCH"
   echo "✅ Step 2/3: loader entry written"
 else
   echo "✅ Step 2/3: loader entry already present"
 fi
 
-# 4. Detect the univer CLI
-if command -v univer >/dev/null 2>&1; then
-  echo "✅ Step 3/3: univer CLI ready ($(univer --version 2>/dev/null | head -1))"
-else
-  echo "⚠️  Step 3/3: univer CLI not found"
-  echo "   It is needed for spreadsheet preview. Ask the AI to install it later, or run:"
-  echo "   npm i -g univer-cli"
-fi
+# 4. The package contains the Gateway, Viewer, and Unit content artifacts.
+echo "✅ Step 3/3: bundled Gateway, Viewer, and content tools ready"
 
 echo ""
 echo "==============================================="
@@ -60,7 +54,7 @@ echo ""
 echo "  Next:"
 echo "  1. Open DeepSeek Harness"
 echo "  2. Press Cmd + R in the window (refresh the page)"
-echo "  3. Ask the AI to run univer commands — a preview card appears at the turn tail"
+echo "  3. Ask the AI to use the univer_* tools — a preview card appears at the turn tail"
 echo "==============================================="
 echo ""
 read -n 1 -s -r -p "Press any key to close this window..."

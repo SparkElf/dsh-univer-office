@@ -1,0 +1,17 @@
+{
+  "repository": "https://github.com/dream-num/univer-cli.git",
+  "revision": "6ec325b67761c60142b88ab4eafce7b63fa9cfc6",
+  "copiedAt": "2026-08-17",
+  "runtime": [
+    "packages/collab-gateway",
+    "packages/collab-gateway-contract",
+    "packages/univerfile-sqlite",
+    "packages/collab-web",
+    "packages/render-preset",
+    "packages/importrange-formula"
+  ],
+  "credentialSources": [
+    "apps/cli/src/license.ts",
+    "packages/render-preset/src/license.ts"
+  ]
+}

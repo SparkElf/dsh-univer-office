@@ -25,11 +25,10 @@ const DEMO_FILE = '/Users/otime/dev/learn/dsh-learn/.scratch-univer/demo.univer'
 const WORKTREE = 'wt-msvqmweb-47hcdg'
 const VIEW_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg&mode=embedded&scope=worktree'
 const MERGE_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg&mode=embedded&scope=mergePreview'
-const TRUNK_URL = 'http://127.0.0.1:9123/?file=KEY&mode=embedded&scope=trunk'
 const UNITS = [
-  { unitId: 'u-msvo3wpe-p4pqi4', name: '销售', type: 2, kind: 'modified' },
-  { unitId: 'u-msvy1lry-dv3hia', name: '班级成绩汇报', type: 3, kind: 'added' },
-  { unitId: 'u-gone-000001', name: '', type: 2, kind: 'deleted' },
+  { unitId: 'u-msvo3wpe-p4pqi4', name: '销售', type: 2, kind: 'modified', worktreeUrl: VIEW_URL + '&unit=u-msvo3wpe-p4pqi4', mergeUrl: MERGE_URL + '&unit=u-msvo3wpe-p4pqi4' },
+  { unitId: 'u-msvy1lry-dv3hia', name: '班级成绩汇报', type: 3, kind: 'added', worktreeUrl: VIEW_URL + '&unit=u-msvy1lry-dv3hia', mergeUrl: MERGE_URL + '&unit=u-msvy1lry-dv3hia' },
+  { unitId: 'u-gone-000001', name: '', type: 2, kind: 'deleted', worktreeUrl: VIEW_URL + '&unit=u-gone-000001', mergeUrl: MERGE_URL + '&unit=u-gone-000001' },
 ]
 const DEFAULT_UNIT_URL = VIEW_URL + '&unit=' + encodeURIComponent(UNITS[0].unitId)
 const SLIDE_UNIT_URL = VIEW_URL + '&unit=' + encodeURIComponent(UNITS[1].unitId)
@@ -39,15 +38,16 @@ const wt = (status, worktreeId = WORKTREE) => ({
   worktreeId,
   name: worktreeId === WORKTREE ? 'v3smoke' : 'other',
   status,
-  ...(status === 'draft' || status === 'ready' ? { worktreeUrl: VIEW_URL, units: UNITS } : {}),
+  units: status === 'draft' || status === 'ready' ? UNITS : [],
+  ...(status === 'draft' || status === 'ready' ? { worktreeUrl: VIEW_URL } : {}),
   ...(status === 'ready' ? { mergeUrl: MERGE_URL } : {}),
-  ...(status === 'merged' ? { trunkUrl: TRUNK_URL } : {}),
 })
 const currentState = () => ({
   ok: true,
   file: DEMO_FILE,
   gateway: 'http://127.0.0.1:9123',
-  daemonRunning: true,
+  gatewayRunning: true,
+  viewerUrl: 'http://127.0.0.1:9123/?file=KEY',
   worktrees,
 })
 const actionLog = []
@@ -57,6 +57,10 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x')
   if (req.method === 'GET' && url.pathname === '/univer-api/state') {
     const file = url.searchParams.get('file')
+    if (url.searchParams.get('sessionId') !== 'test-session-id') {
+      res.writeHead(400).end()
+      return
+    }
     stateRequests.push(file)
     if (file !== DEMO_FILE && file !== REL_DEMO_FILE) {
       res.writeHead(404).end()
@@ -70,6 +74,10 @@ const server = createServer(async (req, res) => {
     const chunks = []
     for await (const chunk of req) chunks.push(chunk)
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    if (body.sessionId !== 'test-session-id') {
+      res.writeHead(400).end()
+      return
+    }
     actionLog.push(body)
     if (failMerge && body.action === 'merge') {
       res.writeHead(200, { 'content-type': 'application/json' })
@@ -78,10 +86,10 @@ const server = createServer(async (req, res) => {
     }
     const next = body.action === 'merge' ? 'merged' : body.action === 'reopen' ? 'draft' : body.action === 'ready' ? 'ready' : null
     worktrees = worktrees
-      .filter((item) => body.action !== 'discard' || item.worktreeId !== body.worktree)
-      .map((item) => (item.worktreeId === body.worktree && next !== null ? wt(next) : item))
+      .filter((item) => body.action !== 'discard' || item.worktreeId !== body.worktreeId)
+      .map((item) => (item.worktreeId === body.worktreeId && next !== null ? wt(next) : item))
     res.writeHead(200, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({ ok: true, action: body.action, worktree: body.worktree, state: currentState() }))
+    res.end(JSON.stringify({ ok: true, action: body.action, worktreeId: body.worktreeId, state: currentState() }))
     return
   }
   res.writeHead(404).end()
@@ -156,23 +164,23 @@ const tailEntry = slotEntries.find((entry) => entry.options.name === 'conversati
 if (dockEntry === undefined) throw new Error('dock entry missing: ' + slotEntries.map((e) => e.options.name + '/' + e.options.id).join(','))
 if (tailEntry === undefined) throw new Error('turn-tail entry missing (existing preview card must stay registered)')
 if (localeDicts === null || localeDicts.ns !== 'univer') throw new Error('locale dictionaries not registered')
-if (conversationDefinition === null || conversationDefinition.kind !== 'univerPreview') throw new Error('conversationEvents definition not registered')
+if (conversationDefinition === null || conversationDefinition.kind !== 'univerTarget') throw new Error('conversationEvents definition not registered')
 
 // ---- definition pure-accumulator sanity (replay-safe, unchanged behavior) ----
 {
   const def = conversationDefinition
-  const mkContext = (state) => ({ state, key: '', kind: 'univerPreview', id: '7', matches: [], start: undefined, current: new Map() })
+  const mkContext = (state) => ({ state, key: '', kind: 'univerTarget', id: '7', matches: [], start: undefined, current: new Map() })
   const startMatch = { id: '7', role: 'start', event: { type: 'turn/start', data: { turn: 7 } }, location: { kind: 'turn', turn: 7 } }
   let state = def.start({ state: undefined }, startMatch, { previous: () => undefined })
   if (state.turn !== 7 || state.targets.length !== 0) throw new Error('definition start state wrong')
-  const bashCall = {
+  const univerCall = {
     id: '7', role: 'update', location: { kind: 'turn', turn: 7 },
-    event: { type: 'tool/call', data: { turn: 7, name: 'bash', arguments: JSON.stringify({ command: 'cd /x/proj && univer worktree add notes/demo.univer --worktree wt-abc12345', workdir: '' }) } },
+    event: { type: 'tool/call', data: { turn: 7, name: 'univer_execute', arguments: JSON.stringify({ file: '/x/proj/notes/demo.univer', worktreeId: 'wt-abc12345', unitId: 'unit-1', code: 'return null;' }) } },
   }
-  state = def.update(mkContext(state), bashCall)
-  if (state.targets.length !== 1 || state.targets[0].file !== '/x/proj/notes/demo.univer' || state.targets[0].worktree !== 'wt-abc12345') throw new Error('bash target extraction wrong: ' + JSON.stringify(state.targets))
+  state = def.update(mkContext(state), univerCall)
+  if (state.targets.length !== 1 || state.targets[0].file !== '/x/proj/notes/demo.univer' || state.targets[0].worktreeId !== 'wt-abc12345') throw new Error('structured target extraction wrong: ' + JSON.stringify(state.targets))
   const locationData = def.buildLocationData(mkContext(state), 'turn')
-  if (locationData === null || locationData.key !== 'univerPreview' || locationData.value.targets.length !== 1) throw new Error('buildLocationData wrong')
+  if (locationData === null || locationData.key !== 'univerTarget' || locationData.value.targets.length !== 1) throw new Error('buildLocationData wrong')
 }
 
 // ---- render harness ----
@@ -181,7 +189,7 @@ const t = (key) => zh[key] ?? key
 const sessionWithTargets = (targets, running) => ({
   sessionId: 'test-session-id',
   running,
-  chat: { timeline: { turns: new Map([[3, { data: { get: (key) => (key === 'univerPreview' ? { targets } : undefined) } }]]) } },
+  chat: { timeline: { turns: new Map([[3, { data: { get: (key) => (key === 'univerTarget' ? { turn: 3, targets } : undefined) } }]]) } },
 })
 const rootEl = document.createElement('div')
 document.body.appendChild(rootEl)
@@ -217,14 +225,14 @@ await waitFor('no UI without targets', () => q('.uvf_root') === null && q('.uvf_
 
 // ---- scenario 0b: relative target resolves against the session cwd ----
 worktrees = [wt('ready')]
-render(sessionWithTargets([{ file: 'work_班级成绩表/班级管理.univer', worktree: WORKTREE }], false))
+render(sessionWithTargets([{ file: 'work_班级成绩表/班级管理.univer', worktreeId: WORKTREE }], false))
 await waitFor('相对路径解析后出现审阅面板', () => q('.uvf_panel') !== null)
 if (stateRequests.at(-1) !== REL_DEMO_FILE) throw new Error('relative target must be polled as absolute: ' + stateRequests.join(', '))
 if ((q('.uvf_panelTitle')?.textContent ?? '').includes('v3smoke') === false) throw new Error('panel must name the worktree')
 
 // ---- scenario 1: draft → floating window with live iframe ----
 worktrees = [wt('merged', 'wt-other-000001'), wt('draft')]
-render(sessionWithTargets([{ file: DEMO_FILE, worktree: WORKTREE }], true))
+render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], true))
 await waitFor('draft 浮窗出现', () => q('.uvf_win') !== null)
 if (q('.uvf_frame')?.getAttribute('src') !== DEFAULT_UNIT_URL) throw new Error('window iframe must default to the changed unit')
 {
@@ -318,14 +326,14 @@ if (q('.uvf_panel') !== null) throw new Error('no merge panel while the worktree
 
 // ---- scenario 3: ready + session running → window stays with ready chip ----
 worktrees = [wt('ready')]
-render(sessionWithTargets([{ file: DEMO_FILE, worktree: WORKTREE }], true))
+render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], true))
 await waitFor('ready 且运行中浮窗保留', () => q('.uvf_win') !== null)
 if ((q('.uvf_chip')?.textContent ?? '') !== '待确认') throw new Error('ready chip must say 待确认 while running')
 if (q('.uvf_panel') !== null) throw new Error('no merge panel while the session is running')
 
 // ---- scenario 3b: draft + session end → review dock with mark-ready ----
 worktrees = [wt('draft')]
-render(sessionWithTargets([{ file: DEMO_FILE, worktree: WORKTREE }], false))
+render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('draft 审阅面板出现（会话结束后）', () => q('.uvf_panel') !== null)
 if (q('.uvf_win') !== null) throw new Error('no floating window for a draft worktree after session end')
 if (q('.uvf_panelFrame')?.getAttribute('src') !== DEFAULT_UNIT_URL) throw new Error('draft panel must embed the live worktree page at the changed unit')
@@ -343,7 +351,7 @@ if ((q('.uvf_panelChip')?.textContent ?? '') !== '待确认') throw new Error('p
 if (q('.uvf_action[data-kind=merge]') === null) throw new Error('merge action must appear once marked ready')
 
 // ---- scenario 4: ready + session end → window closes, merge panel embeds ----
-render(sessionWithTargets([{ file: DEMO_FILE, worktree: WORKTREE }], false))
+render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('会话结束后浮窗关闭', () => q('.uvf_win') === null)
 await waitFor('合并审阅面板出现', () => q('.uvf_panel') !== null)
 if (q('.uvf_panelFrame')?.getAttribute('src') !== DEFAULT_MERGE_URL) throw new Error('panel iframe must embed the mergePreview page at the changed unit')
@@ -358,7 +366,7 @@ if ((q('.uvf_panelChip')?.textContent ?? '') !== '待确认') throw new Error('p
 
 // ---- scenario 4a: reopen → back to the draft review panel ----
 worktrees = [wt('ready')]
-render(sessionWithTargets([{ file: DEMO_FILE, worktree: WORKTREE }], false))
+render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('ready 面板出现（reopen 场景）', () => q('.uvf_action[data-kind=reopen]') !== null)
 q('.uvf_action[data-kind=reopen]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
 await waitFor('reopen 请求发出', () => actionLog.some((entry) => entry.action === 'reopen'))
@@ -369,7 +377,7 @@ if (q('.uvf_action[data-kind=ready]') === null) throw new Error('draft panel mus
 // ---- scenario 4b: merge conflict → error shown, panel stays ----
 failMerge = true
 worktrees = [wt('ready')]
-render(sessionWithTargets([{ file: DEMO_FILE, worktree: WORKTREE }], false))
+render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('ready 面板出现（冲突场景）', () => q('.uvf_action[data-kind=merge]') !== null)
 q('.uvf_action[data-kind=merge]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
 await waitFor('冲突错误显示', () => (q('.uvf_error')?.textContent ?? '').includes('冲突'))
@@ -377,7 +385,7 @@ if (q('.uvf_panel') === null) throw new Error('panel must stay after a failed me
 failMerge = false
 
 // ---- scenario 4c: merge success → terminal, nothing renders anywhere ----
-render(sessionWithTargets([{ file: DEMO_FILE, worktree: WORKTREE }], false))
+render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('面板出现（merge 成功场景）', () => q('.uvf_panel') !== null)
 q('.uvf_action[data-kind=merge]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
 await waitFor('merge 后面板关闭', () => q('.uvf_panel') === null)
@@ -386,7 +394,7 @@ if (q('.uvf_win') !== null) throw new Error('merged worktree must not open a win
 
 // ---- scenario 4d: discard → panel closes, no window ----
 worktrees = [wt('ready')]
-render(sessionWithTargets([{ file: DEMO_FILE, worktree: WORKTREE }], false))
+render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 // The same component instance survives root re-renders; wait for the poll to
 // replace the merged state with the ready state before clicking.
 await waitFor('ready 面板出现（discard 场景）', () => q('.uvf_action[data-kind=discard]') !== null)
@@ -397,7 +405,7 @@ if (q('.uvf_win') !== null) throw new Error('discarded worktree must not open a 
 
 // ---- scenario 5: merged + session end → nothing anywhere ----
 worktrees = [wt('merged')]
-render(sessionWithTargets([{ file: DEMO_FILE, worktree: WORKTREE }], false))
+render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await new Promise((resolvePromise) => setTimeout(resolvePromise, 1100))
 if (q('.uvf_panel') !== null || q('.uvf_win') !== null) throw new Error('merged worktree must render nowhere')
 

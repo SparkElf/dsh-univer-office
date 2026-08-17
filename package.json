@@ -1,21 +1,34 @@
 {
   "name": "@univer-cli/dsh-univer-plugin",
   "version": "0.2.0",
-  "description": "DSH × Univer integration: preview Univer spreadsheets (and other units) inline in DeepSeek Harness — node half manages the univer CLI/daemon and per-file worktree state, client half renders a preview card at the turn tail plus live floating worktree windows and a session-end merge panel.",
+  "description": "DSH × Univer integration with a bundled collaboration Gateway and Viewer: inline previews, live floating Worktree windows, and session-end review actions in DeepSeek Harness.",
   "type": "module",
   "main": "./lib/index.js",
+  "types": "./lib/types/host/index.d.ts",
   "bin": {
     "univer-dsh": "scripts/install.js"
   },
   "files": [
     "lib",
+    "src",
+    "docs",
+    "vendor/collaboration/artifacts",
+    "vendor/collaboration/README.md",
+    "vendor/collaboration/SOURCE.json",
+    "vendor/unit-content/artifacts",
+    "vendor/unit-content/README.md",
+    "vendor/unit-content/SOURCE.json",
     "scripts/install.js",
+    "scripts/copy-gateway-dependencies.mjs",
     "README.md",
     "README.zh-CN.md",
     "cordis.patch.yml"
   ],
   "exports": {
-    ".": "./lib/index.js",
+    ".": {
+      "types": "./lib/types/host/index.d.ts",
+      "default": "./lib/index.js"
+    },
     "./client": {
       "default": "./lib/client.js"
     },
@@ -52,5 +65,49 @@
         "@deepseek-ai/dsh-client-ui-conversation"
       ]
     }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "sync:collaboration": "node scripts/sync-collaboration.mjs",
+    "sync:unit-content": "node scripts/sync-unit-content.mjs",
+    "test:integration": "node test/integration-smoke.mjs",
+    "test:host": "node test/host-smoke.mjs",
+    "test:client": "node test/client-smoke.mjs",
+    "test": "pnpm run build && pnpm run test:host && pnpm run test:integration && pnpm run test:client"
+  },
+  "dependencies": {
+    "libsql": "^0.5.29"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-host-webserver": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-session": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-tools": "0.1.0-rc.6",
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-host-webserver": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-session": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-tools": "0.1.0-rc.6",
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "@univer-cli/content-execution": "1.0.0-insiders.20260813-7c9aa50",
+    "@univer-cli/content-inspection": "1.0.0-insiders.20260813-7c9aa50",
+    "@univer-cli/headless-univer": "1.0.0-insiders.20260813-7c9aa50",
+    "@univer-cli/unit-exchange": "1.0.0-insiders.20260813-7c9aa50",
+    "@univer-cli/univer-collaboration-runtime": "1.0.0-insiders.20260813-7c9aa50",
+    "@types/node": "^24.13.3",
+    "@univerjs-pro/cli-assets": "0.1.0",
+    "@univerjs-pro/engine-formula-rust-binding": "1.0.0-insiders.20260811-001a0e5",
+    "@univerjs-pro/uexcli": "0.3.2",
+    "@univerjs/core": "1.0.0-insiders.20260813-7c9aa50",
+    "@types/react": "^19.2.18",
+    "esbuild": "^0.28.2",
+    "react": "^19.2.8",
+    "typescript": "^7.0.2"
   }
 }

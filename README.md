@@ -1,10 +1,10 @@
 # DeepSeek Harness (DSH) × Univer Plugin
 
-> **The DeepSeek Harness window into Univer's office runtime.**
+> **Create, inspect, edit, and review Univer files inside DeepSeek Harness.**
 
 [English](README.md) · [中文](README.zh-CN.md)
 
-Preview Univer office files (sheets, docs, slides, bases) directly inside DeepSeek Harness: after a turn that runs `univer` commands, a preview card automatically appears at the turn's tail — click it to expand fullscreen in-app, no browser or manual server needed. Worktree work gets a live window: the moment the agent creates a worktree, a small floating window opens with the real-time worktree page, and when the worktree is ready and the session ends, the window closes and the merge review page embeds below the conversation.
+Create and preview Univer office files (sheets, docs, slides, bases) directly inside DeepSeek Harness. After a turn uses a structured `univer_*` tool, a preview card appears at the turn tail; click it to expand fullscreen in-app. Worktree work gets a live window, and session-end review stays inside the conversation.
 
 ```
 ┌────────────────────────────────────────┐
@@ -31,19 +31,20 @@ Preview Univer office files (sheets, docs, slides, bases) directly inside DeepSe
 
 ## Features
 
-- **Inline preview cards** — a card appears at the end of any turn whose bash calls mention a `.univer` file (worktrees supported via `--worktree`).
+- **Inline preview cards** — a card appears at the end of turns that use the structured `univer_*` tools.
 - **In-app fullscreen viewer** — click the card to open the sheet in an in-app iframe; close with ✕ / mask / Esc.
-- **Live floating worktree window** — when the agent creates a worktree (`univer worktree add` / `execute --worktree`), a small window pops up in the **top-right corner** embedding the live read-only worktree page. CLI edits appear in the window in real time. When one worktree touches several units (e.g. a sheet plus a deck), the window and the review panel show **unit chips** that list ONLY changed units (＋ added / ✎ modified / － deleted / ⚠ conflict) with status icons, defaulting to the first one.
+- **Live floating worktree window** — when the agent creates or updates a worktree, a small window pops up in the **top-right corner** embedding the live read-only worktree page. Edits appear in real time. When one worktree touches several units (e.g. a sheet plus a deck), the window and the review panel show **unit chips** that list ONLY changed units (＋ added / ✎ modified / － deleted / ⚠ conflict) with status icons, defaulting to the first one.
 - **Window interactions** — drag the dark bar to move; click the bar (without dragging) to enlarge; `−` folds down to the bare title bar, `⤢` maximizes, **drag the bottom-right corner to resize**, `✕` dismisses until the worktree status changes.
 - **Ready + session end → close, then merge panel** — once the session goes idle, every **non-terminal** worktree moves into the review dock below the conversation: `ready` shows the merge review page (`scope=mergePreview`) plus Reopen / Discard / Merge actions; **`draft` shows up too**, with the live worktree page plus Mark-ready / Discard actions (so a worktree the agent forgot to mark ready is still reviewable). While the session is still running, non-terminal worktrees stay as top-right windows. **Merged or discarded worktrees (terminal states) show nothing — no window, no panel.**
-- **Daemon management** — green dot = daemon running; yellow dot = stopped, click to auto-start.
+- **Bundled Gateway management** — the plugin ships the collaboration Gateway and Viewer; green dot = running, yellow dot = stopped, click to start the plugin-owned Gateway.
 - **Multi-session** — each session shows its own turn's cards, windows, and merge panels.
 - **Bilingual UI** — the card follows the app locale (zh / en).
 
 ## Requirements
 
-- macOS (or Linux) with DeepSeek Harness installed
-- [univer-cli](https://github.com/dream-num/univer-cli) recommended: `npm i -g univer-cli`; without it the plugin still installs and prompts when needed
+- DeepSeek Harness on Apple Silicon macOS for the current checked-in native artifacts
+- No global Univer CLI installation is required. The plugin bundles its Gateway, Viewer, headless Unit Content Worker, Office converter, Univer license, and platform-native dependencies. It registers `univer_create`, `univer_inspect`, `univer_execute`, `univer_export`, and `univer_worktree`.
+- The sync scripts support producing Linux x64/arm64 and Windows x64 native artifacts on those target platforms; platform-specific release publishing is still pending.
 
 ## Install
 
@@ -77,21 +78,22 @@ dsh plugin --profile web add /path/to/dsh-univer-plugin
 If you cannot run the `dsh` CLI, a convenience installer is provided:
 
 ```sh
+pnpm install
 bash install.sh
 ```
 
-Or for macOS users of the zip distribution: double-click `install.command` (see `packaging/INSTALL.txt`).
+The source-checkout installer copies the already-installed Gateway dependencies. For the macOS zip distribution they are already included; double-click `install.command` (see `packaging/INSTALL.txt`).
 
 After any install: **refresh DeepSeek Harness (Cmd+R / Ctrl+R)**.
 
 ## Usage
 
-1. Run `univer` commands in a session (`univer new/import/execute/inspect/...`)
+1. Let the agent use the `univer_*` domain tools
 2. When the turn ends, a preview card appears at its tail
 3. Click the card → in-app fullscreen preview
 4. Create a worktree → the floating live window appears in the corner; watch the agent's edits in real time
-5. `univer worktree ready` → the window shows a ready chip; when the session ends it closes and the merge review panel embeds below the conversation
-6. If the daemon is not running, the card shows a yellow dot; click it to start the daemon
+5. Mark the worktree ready in the review panel → when the session ends, the live window closes and the merge review panel embeds below the conversation
+6. If the bundled Gateway is not running, the card shows a yellow dot; click it to start the Gateway
 
 ## Uninstall
 
@@ -103,33 +105,52 @@ Or remove the plugin manually: delete `~/.dsh/profiles/node_modules/@univer-cli/
 
 ## Architecture
 
-This is a dual-half DSH plugin:
+The package is one installable DSH bundle with several internal Cordis roles:
 
-- **Node half** (`lib/index.js`) — a `dsh.client`-declared package; exposes an `univer` service and loopback `/univer-api/*` HTTP routes on the host web server:
-  - `GET /univer-api/status` — daemon + CLI facts;
-  - `POST /univer-api/ensure-daemon` — on-demand daemon start;
-  - `GET /univer-api/state?file=<abs path>` — worktrees with lifecycle status (`draft`/`ready`/`merged`/`discarded`) and embedded Viewer deep-links (`worktreeUrl`/`mergeUrl`/`trunkUrl`), gateway-first with a CLI fallback and a 1s TTL cache.
-- **Client half** (`lib/client.js`) — two contributions:
-  - the `conversation.chat.turnTail` preview card + fullscreen overlay (scans bash tool calls per turn for `.univer` targets through a pure, replayable conversation-events definition);
-  - the `conversation.input.dock` entry: derives the session's targets from the conversation snapshot, polls `/univer-api/state` every ~900ms, and renders the floating live windows (draft, or ready while the session runs) and the session-end merge panels (ready/merged once the session is idle).
+- the root Host plugin composes the Univer Service Provider, webServer Consumer, and Tools Consumer;
+- `ctx.univer` is the only Host domain API used by the consumers;
+- `host/webServer` exposes `GET /univer-api/status`, `POST /univer-api/gateway/start`, `GET /univer-api/state`, and `POST /univer-api/worktree-action`;
+- the Tools Consumer exposes domain tools instead of a generic CLI passthrough;
+- `host/processes/gateway` owns the bundled Gateway process and Viewer assets; `host/adapters/unit-content` starts an isolated one-shot Unit Content Worker from `workers/unit-content` for inspect, execute, and export;
+- the Client recovers structured targets from durable tool events, polls state through its API layer, and renders preview, live-window, and review components.
 
-The Viewer page itself (`packages/collab-web` in univer-cli) is the live-sync engine: it subscribes to the gateway's lifecycle WebSocket and comb channel, so CLI writes are reflected in the iframe without any plugin-side refresh.
+`src/` is the hand-written plugin source; `lib/index.js`, `lib/client.js`, and `lib/types/` are generated. Vendored upstream source and generated artifacts live under `vendor/collaboration` and `vendor/unit-content`. See [the architecture decision](docs/architecture.md) for directories, dependencies, and trust boundaries.
 
 ## Development
 
-`dist/` and the archives (`univer-dsh-plugin.zip`, `*.tgz`) are **generated** — they are gitignored and never committed. Source lives in `lib/`, `package.json`, `README*.md`, `cordis.patch.yml`, `install.sh`, and `packaging/`. After changing any source file, rebuild the artifacts:
+`dist/` and the archives (`univer-dsh-plugin.zip`, `*.tgz`) are **generated** — they are gitignored and never committed. `vendor/collaboration/artifacts/` and `vendor/unit-content/artifacts/` are intentionally versioned and shipped. Build and test the source first:
+
+```sh
+pnpm run build
+pnpm run test
+```
+
+Then build the release artifacts:
 
 ```sh
 bash scripts/build-dist.sh
 ```
 
+Refresh the Gateway, Viewer, and collaboration source snapshot from a Univer CLI checkout with:
+
+```sh
+npm run sync:collaboration -- /path/to/univer-cli
+```
+
+Refresh the Unit Content Worker, embedded Univer development credential, and current-platform native dependencies with:
+
+```sh
+UNIVER_CLI_SOURCE=/path/to/univer-cli npm run sync:unit-content
+```
+
 This regenerates `dist/univer/` (the shipped package contents), the npm tarball `dist/univer-cli-dsh-univer-plugin-<version>.tgz`, and the zip distribution `univer-dsh-plugin.zip` (package contents + `install.command` + `INSTALL*.txt` from `packaging/`).
 
-Smoke tests (host smoke requires the real `univer` CLI + daemon; the client smoke runs under jsdom with react resolved from a local `deepseek-harness` checkout — adjust `repoRoot` in the test headers):
+Individual smoke tests:
 
 ```sh
 node test/host-smoke.mjs
 node test/client-smoke.mjs
+npm run test:integration
 ```
 
 Publish the package with `npm publish` (respects the `files` allowlist); attach the zip/tgz to a GitHub Release for end users.

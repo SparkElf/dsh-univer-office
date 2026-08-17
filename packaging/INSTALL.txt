@@ -1,6 +1,6 @@
 # DSH × Univer Plugin — Installation Guide
 
-This plugin adds one capability to DeepSeek Harness: when the AI produces a Univer spreadsheet in a session, a **preview card appears right in the conversation** — click it to view the sheet fullscreen inside the app, no browser needed.
+This plugin lets DeepSeek Harness create, edit, inspect, export, preview, and review Univer files. When the AI uses a `univer_*` tool, a **preview card appears right in the conversation** — click it to view the file fullscreen inside the app, no browser needed.
 
 ## Install (three steps)
 
@@ -12,7 +12,7 @@ This plugin adds one capability to DeepSeek Harness: when the AI produces a Univ
 
 ## How to use
 
-1. Ask the AI to run univer commands in a session (e.g. "use univer to create a sales spreadsheet")
+1. Ask the AI to use the `univer_*` tools in a session (e.g. "use Univer to create a sales spreadsheet")
 2. When the turn finishes, a preview card appears automatically:
 
 ```
@@ -29,14 +29,14 @@ This plugin adds one capability to DeepSeek Harness: when the AI produces a Univ
 
 | Situation | What to do |
 | --- | --- |
-| Installer says "univer CLI not found" | Keep going; when the AI needs univer, ask it to install it (or run `npm i -g univer-cli` yourself) |
-| No card after install | Make sure you refreshed (Cmd+R); cards appear only **after** a turn ends and the AI ran a command mentioning a `.univer` file |
-| Card shows a **yellow dot** | The daemon is not running; click the dot to auto-start it |
+| No global univer CLI | Nothing else is required; creation, editing, inspection, export, preview, and Worktree review are bundled. |
+| No card after install | Make sure you refreshed (Cmd+R); cards appear only **after** a turn uses a structured `univer_*` tool. |
+| Card shows a **yellow dot** | The bundled Gateway is not running; click the dot to start it |
 | Want to uninstall | Delete `~/.dsh/profiles/node_modules/@univer-cli/dsh-univer-plugin` and remove the matching lines from `~/.dsh/profiles/web/cordis.patch.yml` |
 
 ## Requirements
 
-- macOS + DeepSeek Harness installed (required)
+- Apple Silicon macOS + DeepSeek Harness installed (required by the current prebuilt zip)
 - No terminal skills or Node needed — just double-click
 
 ---
