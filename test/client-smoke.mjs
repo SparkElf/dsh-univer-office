@@ -112,6 +112,8 @@ if (dom.window.PointerEvent === undefined) {
 globalThis.window = dom.window
 globalThis.document = dom.window.document
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true })
+Object.defineProperty(dom.window, 'innerWidth', { value: 1440, writable: true, configurable: true })
+Object.defineProperty(dom.window, 'innerHeight', { value: 1000, writable: true, configurable: true })
 
 const React = repoRequire('react')
 const jsxRuntime = repoRequire('react/jsx-runtime')
@@ -273,80 +275,99 @@ if (q('.uvf_frame')?.getAttribute('src') !== DEFAULT_UNIT_URL) throw new Error('
   chips[1].dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
   await waitFor('切换 unit 后 iframe 跟随', () => q('.uvf_frame')?.getAttribute('src') === SLIDE_UNIT_URL)
 }
-if ((q('.uvf_title')?.textContent ?? '').includes('v3smoke') === false) throw new Error('title must name the draft worktree')
+if ((q('.uvf_windowTitle')?.textContent ?? '').includes('v3smoke') === false) throw new Error('title must name the draft worktree')
 if (qa('.uvf_win').length !== 1) throw new Error('worktrees the session never mentioned must stay hidden')
 if (q('.uvf_panel') !== null) throw new Error('no merge panel while the worktree is draft')
 
-// ---- scenario 2: click-to-maximize / fold / drag / dismiss ----
+// ---- scenario 2: window controls / drag / bounded eight-way resize ----
 {
   const win = q('.uvf_win')
-  const bar = q('.uvf_bar')
-  // Click (press + release without movement) maximizes.
-  bar.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 7, clientX: 100, clientY: 20 }))
-  bar.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true, pointerId: 7, clientX: 100, clientY: 20 }))
-  await waitFor('点击标题栏放大', () => win.className.includes('uvf_win_max'))
-  qa('.uvf_btn')[1].dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  const header = q('.uvf_windowHeader')
+  const px = (property) => Number.parseFloat(win.style[property])
+  if (px('width') !== 560 || px('height') !== 420) throw new Error('window must use the new default geometry')
+  if (qa('.uvf_resizeHandle').map((handle) => handle.getAttribute('data-direction')).join(',') !== 'nw,n,ne,w,e,sw,s,se') {
+    throw new Error('window must expose all eight resize directions')
+  }
+  // Double-clicking the title bar maximizes; the explicit control restores.
+  header.dispatchEvent(new dom.window.MouseEvent('dblclick', { bubbles: true, button: 0 }))
+  await waitFor('双击标题栏放大', () => win.className.includes('uvf_win_max'))
+  q('[data-window-action=maximize]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
   await waitFor('还原', () => win.className.includes('uvf_win_max') === false)
-  // Drag: movement beyond the slop moves the window, not maximize.
-  bar.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 8, clientX: 100, clientY: 20 }))
-  bar.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 8, clientX: 60, clientY: 170 }))
-  bar.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true, pointerId: 8 }))
-  await waitFor('拖拽位移写入 transform', () => (q('.uvf_win').style.transform ?? '').includes('translate(-40px, 150px)'))
-  if (q('.uvf_win').className.includes('uvf_win_max')) throw new Error('drag must not maximize')
-  // Fold collapses the window to its bar (class + no inline size + no iframe).
-  qa('.uvf_btn')[0].dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
-  await waitFor('折叠后只剩标题条', () => q('.uvf_win') !== null && q('.uvf_win').className.includes('uvf_win_folded') && q('.uvf_frame') === null)
-  if ((q('.uvf_win').style.width ?? '') !== '') throw new Error('folded window must drop its inline size')
-  qa('.uvf_btn')[0].dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
-  await waitFor('展开后 iframe 恢复', () => q('.uvf_frame') !== null)
-  // Corner handle resizes the window (clamped to the bounds).
+  // Dragging updates viewport coordinates and never changes display mode.
+  const dragStart = { left: px('left'), top: px('top') }
+  header.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 8, clientX: 100, clientY: 20 }))
+  header.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 8, clientX: 60, clientY: 170 }))
+  header.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true, pointerId: 8 }))
+  await waitFor('拖拽位移写入视口坐标', () => px('left') === dragStart.left - 40 && px('top') === dragStart.top + 150)
+  if (win.className.includes('uvf_win_max')) throw new Error('drag must not maximize')
+  // Fold hides the body without unmounting or reloading the Viewer iframe.
+  const frameBeforeFold = q('.uvf_frame')
+  q('[data-window-action=fold]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  await waitFor('折叠后只显示标题条', () => q('.uvf_win') !== null && q('.uvf_win').className.includes('uvf_win_folded') && q('.uvf_windowBody')?.hidden === true)
+  if (q('.uvf_frame') !== frameBeforeFold) throw new Error('fold must keep the Viewer iframe mounted')
+  q('[data-window-action=fold]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  await waitFor('展开后 Viewer 恢复', () => q('.uvf_windowBody')?.hidden === false)
+  if (q('.uvf_frame') !== frameBeforeFold) throw new Error('expand must reuse the loaded Viewer iframe')
+  // South-east grows both dimensions without moving the north-west corner.
   {
-    const handle = q('.uvf_h_se')
+    const handle = q('[data-direction=se]')
     if (handle === null) throw new Error('se resize handle missing')
-    handle.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 9, clientX: 480, clientY: 340 }))
-    handle.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 9, clientX: 580, clientY: 420 }))
+    const start = { left: px('left'), top: px('top'), width: px('width'), height: px('height') }
+    handle.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 9, clientX: 500, clientY: 400 }))
+    handle.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 9, clientX: 540, clientY: 480 }))
     handle.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true, pointerId: 9 }))
-    await waitFor('拖角缩放生效', () => (q('.uvf_win').style.width === '580px' && q('.uvf_win').style.height === '420px'))
+    await waitFor('右下角缩放生效', () => px('left') === start.left && px('top') === start.top && px('width') === start.width + 40 && px('height') === start.height + 80)
   }
-  // Bottom-left corner: width/height shrink; the RIGHT edge stays fixed, so
-  // the x offset must NOT change (right-anchored stack).
+  // North-west moves the origin while keeping the opposite corner fixed.
   {
-    const handle = q('.uvf_h_sw')
-    if (handle === null) throw new Error('sw resize handle missing')
-    handle.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 10, clientX: 100, clientY: 420 }))
-    handle.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 10, clientX: 160, clientY: 340 }))
+    const handle = q('[data-direction=nw]')
+    if (handle === null) throw new Error('nw resize handle missing')
+    const start = { left: px('left'), top: px('top'), width: px('width'), height: px('height') }
+    handle.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 10, clientX: 100, clientY: 100 }))
+    handle.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 10, clientX: 160, clientY: 140 }))
     handle.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true, pointerId: 10 }))
-    await waitFor('左下角缩放生效', () => (q('.uvf_win').style.width === '520px' && q('.uvf_win').style.height === '340px' && (q('.uvf_win').style.transform ?? '').includes('translate(60px, 150px)')))
+    await waitFor('左上角缩放生效', () => px('left') === start.left + 60 && px('top') === start.top + 40 && px('width') === start.width - 60 && px('height') === start.height - 40)
   }
-  // Left edge: width shrinks, right edge still fixed (x unchanged).
+  // East and south edges resize independently.
   {
-    const handle = q('.uvf_h_w')
-    if (handle === null) throw new Error('west resize handle missing')
-    handle.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 11, clientX: 100, clientY: 200 }))
-    handle.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 11, clientX: 140, clientY: 200 }))
-    handle.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true, pointerId: 11 }))
-    await waitFor('左边缘缩放生效', () => (q('.uvf_win').style.width === '480px' && (q('.uvf_win').style.transform ?? '').includes('translate(60px, 150px)')))
-  }
-  // Right edge: width grows and the window shifts right (left edge fixed).
-  {
-    const handle = q('.uvf_h_e')
+    const handle = q('[data-direction=e]')
     if (handle === null) throw new Error('east resize handle missing')
+    const start = { left: px('left'), width: px('width') }
     handle.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 13, clientX: 200, clientY: 200 }))
-    handle.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 13, clientX: 240, clientY: 200 }))
+    handle.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 13, clientX: 160, clientY: 200 }))
     handle.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true, pointerId: 13 }))
-    await waitFor('右边缘缩放生效', () => (q('.uvf_win').style.width === '520px' && (q('.uvf_win').style.transform ?? '').includes('translate(100px, 150px)')))
+    await waitFor('右边缘缩放生效', () => px('left') === start.left && px('width') === start.width - 40)
   }
-  // Bottom edge: height grows, width stays.
   {
-    const handle = q('.uvf_h_s')
+    const handle = q('[data-direction=s]')
     if (handle === null) throw new Error('south resize handle missing')
+    const start = { width: px('width'), height: px('height') }
     handle.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 12, clientX: 200, clientY: 340 }))
     handle.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 12, clientX: 200, clientY: 380 }))
     handle.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true, pointerId: 12 }))
-    await waitFor('底边缘缩放生效', () => (q('.uvf_win').style.height === '380px' && q('.uvf_win').style.width === '520px'))
+    await waitFor('底边缘缩放生效', () => px('height') === start.height + 40 && px('width') === start.width)
   }
+  // Dragging and resizing clamp to the viewport and react to viewport changes.
+  header.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 14, clientX: 100, clientY: 100 }))
+  header.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 14, clientX: -10000, clientY: -10000 }))
+  header.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true, pointerId: 14 }))
+  await waitFor('拖拽夹紧到视口左上角', () => px('left') === 12 && px('top') === 12)
+  {
+    const handle = q('[data-direction=w]')
+    handle.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 15, clientX: 0, clientY: 100 }))
+    handle.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 15, clientX: 10000, clientY: 100 }))
+    handle.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true, pointerId: 15 }))
+    await waitFor('缩放夹紧到最小宽度', () => px('width') === 360)
+  }
+  dom.window.innerWidth = 700
+  dom.window.innerHeight = 520
+  dom.window.dispatchEvent(new dom.window.Event('resize'))
+  await waitFor('视口缩小后窗口仍可见', () => px('left') >= 12 && px('top') >= 12 && px('left') + px('width') <= 688 && px('top') + px('height') <= 508)
+  dom.window.innerWidth = 1440
+  dom.window.innerHeight = 1000
+  dom.window.dispatchEvent(new dom.window.Event('resize'))
   // Dismiss removes the window while the status stays draft.
-  qa('.uvf_btn')[2].dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  q('[data-window-action=close]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
   await waitFor('关闭后浮窗消失', () => q('.uvf_win') === null)
 }
 

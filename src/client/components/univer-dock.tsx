@@ -38,10 +38,11 @@ export function UniverDock(props: UniverDockProps): React.ReactElement {
   }
 
   return <>
-    {windows.length === 0 ? null : <div className="uvf_root">{windows.map(({ file, worktree }) => <WorktreeWindow
+    {windows.length === 0 ? null : <div className="uvf_root">{windows.map(({ file, worktree }, stackIndex) => <WorktreeWindow
       key={worktree.worktreeId}
       file={file}
       worktree={worktree}
+      stackIndex={stackIndex}
       t={props.t}
       onDismiss={() => setDismissed((previous) => ({ ...previous, [worktree.worktreeId]: worktree.status }))}
     />)}</div>}
