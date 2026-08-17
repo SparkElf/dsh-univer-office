@@ -2,10 +2,12 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ResolvedConfig } from '../config.ts'
 import type {} from '../service/univer-service.ts'
 import { apiTool } from './definitions/api.ts'
+import { compileSvgTool } from './definitions/compile-svg.ts'
 import { executeTool } from './definitions/execute.ts'
 import { exportTool } from './definitions/export.ts'
 import { importTool } from './definitions/import.ts'
 import { inspectTool } from './definitions/inspect.ts'
+import { lintTool } from './definitions/lint.ts'
 import { newTool } from './definitions/new.ts'
 import { statusTool } from './definitions/status.ts'
 import { unitTool } from './definitions/unit.ts'
@@ -27,6 +29,8 @@ export function apply(ctx: Context, config: ResolvedConfig): void {
   ctx.tools.register(inspectTool(ctx, unitContentTimeoutMs))
   ctx.tools.register(executeTool(ctx, unitContentTimeoutMs))
   ctx.tools.register(exportTool(ctx, unitContentTimeoutMs))
+  ctx.tools.register(lintTool(ctx, unitContentTimeoutMs))
+  ctx.tools.register(compileSvgTool(ctx, unitContentTimeoutMs))
   ctx.tools.register(apiTool(ctx))
   ctx.on('tools/pre-execute', (exec, next) => {
     if (exec.name !== 'univer_worktree' || !isRecord(exec.arguments)) return next()

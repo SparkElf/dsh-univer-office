@@ -26,6 +26,7 @@ export type UnitContentWorkerRequest =
   | (UnitContentWorkerTarget & { readonly operation: 'inspect'; readonly query: UnitContentInspectionQuery })
   | (UnitContentWorkerTarget & { readonly operation: 'execute'; readonly code: string; readonly worktreeId: string })
   | (UnitContentWorkerTarget & { readonly operation: 'export'; readonly outputPath: string })
+  | (UnitContentWorkerTarget & { readonly operation: 'render-source' })
   | { readonly operation: 'import'; readonly sourcePath: string; readonly unitType: number }
 
 /** Process response envelope emitted once on stdout. */

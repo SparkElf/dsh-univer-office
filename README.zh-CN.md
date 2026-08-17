@@ -42,8 +42,8 @@
 
 ## 环境要求
 
-- DeepSeek Harness 与 Node.js 22.19 或更高版本；当前平台的原生依赖由包管理器从 registry 安装
-- 不需要全局安装 Univer CLI。插件内置 Gateway、Viewer、无头 Unit Content Worker、Office 转换器、Univer license、当前平台的原生依赖及按需加载的 Univer Skills，并注册 `univer_new`、`univer_status`、`univer_worktree`、`univer_unit`、`univer_import`、`univer_inspect`、`univer_execute`、`univer_export` 和 `univer_api`。
+- DeepSeek Harness 与 Node.js 22.19 或更高版本；当前平台的原生依赖由包管理器从 registry 安装。Slide 布局检查和 SVG 真实文字测量需要本机 Chrome/Chromium，或设置 `UNIVER_RENDER_BROWSER`。
+- 不需要全局安装 Univer CLI。插件内置 Gateway、Viewer、无头 Unit Content Worker、machine render page、Office 转换器、Univer license、当前平台的原生依赖及 8 个版本匹配、按需加载的 Univer Skills：核心编排、5 类 Unit 指南、Embed 与跨 Unit 公式。除 DSH Tool/Client 预览替代 CLI command、以及插件尚未开放的能力外，工作流与 Univer CLI 保持一致。插件注册 `univer_new`、`univer_status`、`univer_worktree`、`univer_unit`、`univer_import`、`univer_inspect`、`univer_execute`、`univer_export`、`univer_lint`、`univer_compile_svg` 和 `univer_api`。
 - 暂不提供模型截图能力。bundled Skill 会在视觉效果尚未验证时明确说明，不会声称已经完成视觉确认。
 
 ## 安装
@@ -76,11 +76,12 @@ dsh plugin --profile web add /path/to/dsh-univer-office
 
 1. 创建空 `.univer` 文件，再创建隔离 worktree
 2. 在 draft worktree 中创建指定类型的 Unit，或导入 Office 文件
-3. 按需加载对应 Unit Skill；需要准确 Facade 或方法时用 `univer_api` 查询
-4. 用 `univer_execute` 修改，用 `univer_inspect` 检查内容，只在用户要求时导出
-5. 用 `ready` 提交确认；同一任务需要继续修改时用 `reopen`
-6. 只有用户明确要求且 DSH 审批通过后才 merge 或 discard；应用内审阅面板也提供相同决策
-7. 预览卡片、实时 worktree 浮窗和会话结束审阅面板会随结构化工具结果更新
+3. 模型会主动加载核心 Skill 与对应 Unit Skill；Embed 和跨 Unit 公式还会加载各自 Topic Skill；需要准确 Facade 或方法时用 `univer_api` 查询
+4. 用 `univer_execute` 修改，用 `univer_inspect` 检查内容，并对 Slide 运行 `univer_lint` 检查文字布局
+5. 需要用 SVG 替换或叠加指定 Slide 页面时使用 `univer_compile_svg`；只在用户要求时导出
+6. 用 `ready` 提交确认；同一任务需要继续修改时用 `reopen`
+7. 只有用户明确要求且 DSH 审批通过后才 merge 或 discard；应用内审阅面板也提供相同决策
+8. 预览卡片、实时 worktree 浮窗和会话结束审阅面板会随结构化工具结果更新
 
 ## 卸载
 
@@ -96,14 +97,14 @@ dsh plugin --profile web remove dsh-univer-office
 - Consumer 只调用 `ctx.univer`，不会直接访问 Gateway、CLI、子进程或文件系统；
 - `host/webServer` 提供 `GET /univer-api/status`、`POST /univer-api/gateway/start`、`GET /univer-api/state` 和 `POST /univer-api/worktree-action`；
 - Tools Consumer 注册领域工具，不提供通用 CLI 透传；
-- `host/processes/gateway` 管理内置 Gateway 进程和 Viewer 资源；`host/adapters/unit-content` 为 import、inspect、execute、export 启动来自 `workers/unit-content` 的一次性 Unit Content Worker；
+- `host/processes/gateway` 管理内置 Gateway 进程和 Viewer 资源；`host/adapters/unit-content` 为 import、inspect、execute、export 和 render-source 读取启动来自 `workers/unit-content` 的一次性 Unit Content Worker；machine render page 提供 Slide 布局事实和 SVG 文字测量，但不暴露截图；
 - Client 从持久化工具事件恢复结构化目标，通过统一 API 层轮询状态，再由预览、实时浮窗和审阅组件渲染。
 
 `src/` 包含 Host、Client、Gateway、Unit Content Worker 和 Viewer 源码。Viewer application 及其本地渲染支撑源码从 `univer-cli` 复制而来，本仓库会构建自己发布的所有 application。目录、依赖方向和信任边界见[架构决策](docs/architecture.md)。
 
 ## 开发
 
-`lib/`、`artifacts/`、`dist/` 及归档产物（`univer-dsh-plugin.zip`、`*.tgz`）均为**生成物**，不入库。`pnpm run build` 从 `src/` 构建 Host、Client、Gateway、Unit Content Worker 和 Viewer。
+`lib/`、`artifacts/`、`dist/` 及归档产物（`univer-dsh-plugin.zip`、`*.tgz`）均为**生成物**，不入库。`pnpm run build` 从 `src/` 构建 Host、Client、Gateway、Unit Content Worker、machine render page 和 Viewer。
 
 ```sh
 pnpm run build

@@ -36,6 +36,7 @@
 - 多个 DSH 会话的预览目标与审阅状态相互隔离；
 - 中英文界面；
 - 模型可创建空 `.univer` 文件、管理 worktree 与 Unit、导入 Office 文件、查询 Univer API、修改、检查和导出内容；
+- 模型可对 Slide 执行不输出图片的真实布局检查，并把 workspace 内的 SVG 编译并应用到显式 Slide 页面；
 - `ready` 与 `reopen` 属于模型工作流，`merge` 与 `discard` 只在用户明确要求且 DSH 审批通过后执行；
 - 当前不提供模型截图工具；视觉结果重要时必须明确说明尚未完成视觉验证。
 
@@ -113,6 +114,8 @@ src/
         inspect.ts
         execute.ts
         export.ts
+        lint.ts
+        compile-svg.ts
         api.ts
     skills/
       plugin.ts                      # bundled lazy Skill Provider
@@ -136,6 +139,7 @@ src/
       entry.ts                       # 一次性无头 Univer 子进程入口
       license.ts                     # Worker 使用的 Univer license
       runtime/                       # 本地 snapshot/reference adapters
+  render-machine/                    # 布局检查与 SVG 文字测量使用的 machine-facing browser page
   gateway-app/
     gateway-entry.ts                 # Gateway 子进程入口
     transport/http.ts                # 文件、worktree 与 Unit HTTP 控制面
@@ -179,6 +183,7 @@ lib/
   types/                             # gitignored 的类型声明
 artifacts/                            # gitignored 的发布运行产物
   viewer/                            # 从 viewer-app 生成
+  render-machine/                    # 从 render-machine 生成
   gateway.cjs                        # 从 gateway-app 生成
   unit-content-worker.mjs           # 从 workers/unit-content 生成
 test/
@@ -195,6 +200,8 @@ skills/
   univer-slide/SKILL.md
   univer-base/SKILL.md
   univer-board/SKILL.md
+  univer-embed/SKILL.md
+  univer-cross-unit-formula/SKILL.md
 ```
 
 当前仍采用单包发布。只有当某一层具备独立版本、独立消费方或明显不同的发布节奏时才拆 npm 包；目录分层本身不是拆包理由。
@@ -232,7 +239,8 @@ bundled skill provider -> DSH skill registry
 
 - File 与状态：创建空 `.univer` 容器，读取 trunk、worktree 与 Unit 状态；
 - Collaboration：创建 worktree，执行 ready、reopen、merge 与 discard 生命周期操作；
-- Unit Content：在 draft worktree 中创建、移除或导入 Unit，以及检查、执行和导出 Unit 内容；
+- Unit Content：在 draft worktree 中创建、移除或导入 Unit，以及检查、执行、导出和读取 machine render snapshot；
+- Render Authoring：对 Slide snapshot 执行布局检查，把 SVG 编译为 Facade program 并提交到显式 draft worktree；
 - API Reference：查找 API 候选并读取指定 Facade/方法的完整参考。
 
 所有文件操作都接收显式 workspace scope。Provider 必须将文件解析为绝对路径，并拒绝 scope 外路径。文件 ID、worktree ID 和 unit ID 在服务层使用 branded 类型，不能以无语义的裸字符串跨层传递。
@@ -280,13 +288,15 @@ Tools Consumer 注册面向模型的领域工具，而不是一个透传 CLI 的
 - `univer_inspect`
 - `univer_execute`
 - `univer_export`
+- `univer_lint`
+- `univer_compile_svg`
 - `univer_api`
 
 每个工具有独立的参数 schema、结果 schema、超时/取消处理和纯 presentation。工具结果必须包含恢复 Client 预览目标所需的结构化文件、worktree 与 unit 标识，并进入 DSH 会话日志。Client 优先从 `tool/call` 与 `tool/result` 事件恢复目标，不依赖 bash 文本解析。
 
 `univer_status` 是发现文件状态与显式 Unit ID 的入口。所有内容工具要求显式 Unit ID，所有文件和输出路径都绑定当前 tool exec session 的 workspace，并在 Provider 边界再次验证。`ready` 提交修改等待审阅；同一任务需要继续修改时用 `reopen`。`merge` 与 `discard` 只有在用户明确要求时才可调用，并通过 `tools/pre-execute` 返回审批请求，不能由模型自行决定。
 
-包内 `univer` Skill 描述完整编排顺序，sheet、doc、slide、base 与 board Skill 只在对应 Unit 工作时按需加载。Skill 不提供截图能力，也不把可变 API 签名固化在 Markdown 中；不确定的 API 必须通过 `univer_api` 查询。
+包内 `univer` Skill 描述完整编排顺序，sheet、doc、slide、base 与 board Skill 只在对应 Unit 工作时按需加载，Embed 与跨 Unit 公式各有 Topic Skill。内容以同版本 Univer CLI runtime Skills 为基线：只移除插件未开放的 command，并把 CLI command 调用替换为结构化 DSH Tool 或 Client 自动预览。Slide Skill 要求新页面主动使用 `univer_compile_svg`，结构检查后对每个变更页运行 `univer_lint`。Skill 不提供截图能力；不确定或可能随 SDK 变化的 API 必须通过 `univer_api` 查询。
 
 Client 只解析结构化 `univer_*` 工具事件，不从 bash 命令或自由文本猜测文件与 worktree。
 
@@ -316,12 +326,14 @@ Client 必须满足：
 2. `univer_execute` 只写入显式 draft worktree 与 Unit，并由 Gateway revision 确认提交；
 3. `univer_inspect` 与 `univer_export` 可读取 trunk 或显式 worktree；
 4. `univer_api` 使用包依赖的精确版本 API Reference，不调用外部 CLI；
-5. Client 只从结构化工具事件恢复预览目标；
-6. 全新环境仅安装本插件即可完成创建、导入、修改、检查、导出、预览和 worktree 修改审阅。
+5. `univer_lint` 只返回布局 coverage 与 findings，不生成或返回图片；
+6. `univer_compile_svg` 只读取 session workspace 内的 SVG 与引用资源，并把生成程序提交到显式 draft worktree；
+7. Client 只从结构化工具事件恢复预览目标；
+8. 全新环境仅安装本插件即可完成创建、导入、修改、检查、布局 lint、SVG 页面编译、导出、预览和 worktree 修改审阅。
 
 ## 12. 构建与发布
 
-`src` 包含插件发布的所有 application 源码；Viewer application、render preset 和 IMPORTRANGE plugin 源码从 `univer-cli` 复制到本仓库后直接维护。`pnpm run build` 生成 Host/Client bundle、Unit Content Worker、Gateway 和 Viewer；`lib` 与 `artifacts` 都被 gitignore，并在打包前重新生成。Host 构建为 Node ESM，Client 构建为 DSH ModuleLoader 可加载的浏览器 bundle，Gateway 构建为 Node CJS 子进程，Worker 构建为 Node ESM 子进程，Viewer 构建为由 Gateway 提供的 Vite 静态资产。
+`src` 包含插件发布的所有 application 源码；Viewer application、machine render page、render preset 和 IMPORTRANGE plugin 源码从 `univer-cli` 复制到本仓库后直接维护。`pnpm run build` 生成 Host/Client bundle、Unit Content Worker、Gateway、machine render page 和 Viewer；`lib` 与 `artifacts` 都被 gitignore，并在打包前重新生成。Host 构建为 Node ESM，Client 构建为 DSH ModuleLoader 可加载的浏览器 bundle，Gateway 构建为 Node CJS 子进程，Worker 构建为 Node ESM 子进程，machine render page 与 Viewer 构建为 Vite 静态资产。
 
 发布包包含运行所需的 Gateway、Viewer、Unit Content Worker、Office 转换器、平台依赖、Univer license 与 bundled Skills。Gateway、Worker、Viewer 和 Host 直接使用 manifest 中精确版本的 Univer SDK/API Reference packages；JavaScript SDK 被 bundle，平台原生 package 由包管理器为目标机器安装。发布时只打包从当前源码生成的运行产物。
 

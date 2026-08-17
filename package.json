@@ -58,12 +58,13 @@
     }
   },
   "scripts": {
-    "build": "pnpm run build:lib && pnpm run build:worker && pnpm run build:gateway && pnpm run build:viewer",
+    "build": "pnpm run build:lib && pnpm run build:worker && pnpm run build:gateway && pnpm run build:render && pnpm run build:viewer",
     "build:lib": "node scripts/build.mjs lib",
     "build:worker": "node scripts/build.mjs worker",
     "build:gateway": "node scripts/build.mjs gateway",
+    "build:render": "node scripts/build.mjs render",
     "build:viewer": "node scripts/build.mjs viewer",
-    "typecheck": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.client.json && tsc --project tsconfig.viewer.json --noEmit",
+    "typecheck": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.client.json && tsc --project tsconfig.viewer.json --noEmit && tsc --project tsconfig.render.json --noEmit",
     "test:integration": "node test/integration-smoke.mjs",
     "test:host": "node test/host-smoke.mjs",
     "test:client": "node test/client-smoke.mjs",
@@ -72,10 +73,12 @@
     "prepublishOnly": "pnpm run build && pnpm run test"
   },
   "dependencies": {
+    "@puppeteer/browsers": "^3.2.0",
     "@univerjs-pro/cli-assets": "0.1.0",
     "@univerjs-pro/engine-formula-rust-binding": "1.0.0-insiders.20260811-001a0e5",
     "@univerjs-pro/uexcli": "0.3.2",
-    "libsql": "^0.5.29"
+    "libsql": "^0.5.29",
+    "puppeteer-core": "^25.7.0"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
@@ -108,8 +111,11 @@
     "@univer-cli/content-execution": "1.0.0-insiders.20260813-7c9aa50",
     "@univer-cli/content-inspection": "1.0.0-insiders.20260813-7c9aa50",
     "@univer-cli/headless-univer": "1.0.0-insiders.20260813-7c9aa50",
+    "@univer-cli/svg-facade": "1.0.0-insiders.20260813-7c9aa50",
     "@univer-cli/unit-exchange": "1.0.0-insiders.20260813-7c9aa50",
+    "@univer-cli/unit-layout-lint": "1.0.0-insiders.20260813-7c9aa50",
     "@univer-cli/univer-collaboration-runtime": "1.0.0-insiders.20260813-7c9aa50",
+    "@univer-cli/univer-render-runtime": "1.0.0-insiders.20260813-7c9aa50",
     "@univerjs-pro/bases": "1.0.0-insiders.20260813-7c9aa50",
     "@univerjs-pro/bases-ui": "1.0.0-insiders.20260813-7c9aa50",
     "@univerjs-pro/boards": "1.0.0-insiders.20260813-7c9aa50",

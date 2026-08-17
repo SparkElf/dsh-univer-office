@@ -7,8 +7,11 @@ export const GATEWAY_ENTRY = fileURLToPath(new URL('../artifacts/gateway.cjs', i
 /** Bundled Viewer assets served by the Gateway. */
 export const VIEWER_ROOT = fileURLToPath(new URL('../artifacts/viewer/', import.meta.url))
 
-/** Bundled one-shot worker used for content import, inspection, execution, and export. */
+/** Bundled one-shot worker used for content import, inspection, execution, export, and render-source reads. */
 export const UNIT_CONTENT_WORKER_ENTRY = fileURLToPath(new URL('../artifacts/unit-content-worker.mjs', import.meta.url))
+
+/** Bundled machine-facing page used for layout analysis and text measurement. */
+export const RENDER_MACHINE_ROOT = fileURLToPath(new URL('../artifacts/render-machine/', import.meta.url))
 
 // The worker and gateway resolve their native dependencies (@univerjs-pro/uexcli,
 // engine-formula-rust-binding, libsql) through this plugin's own node_modules,

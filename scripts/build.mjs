@@ -5,8 +5,9 @@
 //   pnpm run build:lib     → lib/index.js (host) + lib/client.js (client bundle)
 //   pnpm run build:worker  → artifacts/unit-content-worker.mjs
 //   pnpm run build:gateway → artifacts/gateway.cjs
+//   pnpm run build:render  → artifacts/render-machine/
 //   pnpm run build:viewer  → artifacts/viewer/
-//   pnpm run build         → all four applications
+//   pnpm run build         → all five applications
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { builtinModules } from 'node:module'
@@ -40,6 +41,8 @@ const external = [
   '@univerjs-pro/uexcli',
   '@univerjs-pro/engine-formula-rust-binding',
   '@univerjs-pro/cli-assets',
+  '@puppeteer/browsers',
+  'puppeteer-core',
 ]
 
 if (target === 'all' || target === 'lib') {
@@ -133,6 +136,37 @@ if (target === 'all' || target === 'gateway') {
     sourcemap: false,
   })
   console.log('built', gatewayOut)
+}
+
+if (target === 'all' || target === 'render') {
+  const renderRoot = resolve('src/render-machine')
+  const renderOut = resolve('artifacts/render-machine')
+  await buildVite({
+    configFile: false,
+    root: renderRoot,
+    base: './',
+    build: {
+      target: 'esnext',
+      outDir: renderOut,
+      emptyOutDir: true,
+      chunkSizeWarningLimit: 20_000,
+    },
+    define: {
+      'process.env': '{}',
+    },
+    resolve: {
+      alias: {
+        ...createEmbedUiMenuSchemaAliases(renderRoot),
+        '@univer/render-preset/styles': resolve('src/viewer-support/render-preset/styles.ts'),
+        '@univer/render-preset/facades': resolve('src/viewer-support/render-preset/facades.ts'),
+        '@univer/render-preset/machine-locale': resolve('src/viewer-support/render-preset/machine-locale.ts'),
+        '@univer/render-preset': resolve('src/viewer-support/render-preset/index.ts'),
+        '@univer/importrange-formula': resolve('src/viewer-support/importrange-formula/index.ts'),
+      },
+    },
+    plugins: [createPrismComponentEsmPlugin()],
+  })
+  console.log('built', renderOut)
 }
 
 if (target === 'all' || target === 'viewer') {

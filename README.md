@@ -42,8 +42,8 @@ Create and preview Univer office files (sheets, docs, slides, bases) directly in
 
 ## Requirements
 
-- DeepSeek Harness and Node.js 22.19 or newer; platform-native dependencies are installed from the registry for the current machine
-- No global Univer CLI installation is required. The plugin bundles its Gateway, Viewer, headless Unit Content Worker, Office converter, Univer license, platform-native dependencies, and lazy Univer skills. It registers `univer_new`, `univer_status`, `univer_worktree`, `univer_unit`, `univer_import`, `univer_inspect`, `univer_execute`, `univer_export`, and `univer_api`.
+- DeepSeek Harness and Node.js 22.19 or newer; platform-native dependencies are installed from the registry for the current machine. Slide layout lint and SVG text measurement require a local Chrome/Chromium executable or `UNIVER_RENDER_BROWSER`.
+- No global Univer CLI installation is required. The plugin bundles its Gateway, Viewer, headless Unit Content Worker, machine render page, Office converter, Univer license, platform-native dependencies, and eight version-matched lazy Univer skills: core orchestration, five Unit guides, Embed, and cross-Unit formulas. Their workflows track Univer CLI except where DSH tools or the client preview replace CLI commands, and where the plugin does not yet expose a capability. The plugin registers `univer_new`, `univer_status`, `univer_worktree`, `univer_unit`, `univer_import`, `univer_inspect`, `univer_execute`, `univer_export`, `univer_lint`, `univer_compile_svg`, and `univer_api`.
 - Model screenshot capture is intentionally not included yet. The bundled skill reports when appearance remains unverified instead of claiming visual confirmation.
 
 ## Install
@@ -79,11 +79,12 @@ After any install: **refresh DeepSeek Harness (Cmd+R / Ctrl+R)**.
 
 1. Create an empty `.univer` file, then create an isolated worktree
 2. Create a typed Unit or import an Office file into that draft worktree
-3. Use the matching lazy Unit skill and `univer_api` when an exact Facade or method is needed
-4. Modify with `univer_execute`, verify content with `univer_inspect`, and export only when requested
-5. Submit with `ready`; use `reopen` when the same task needs another edit
-6. Merge or discard only on an explicit request and after DSH approval; the in-app review panel provides the same decisions
-7. Preview cards, the live worktree window, and the session-end review panel reflect the structured tool results
+3. The model proactively loads the core and matching Unit skill; Embed and cross-Unit formulas load their topic skills as well. Use `univer_api` when an exact Facade or method is needed
+4. Modify with `univer_execute`; verify content with `univer_inspect`, and run `univer_lint` for Slide text layout
+5. Use `univer_compile_svg` when an SVG should replace or overlay one explicit Slide page; export only when requested
+6. Submit with `ready`; use `reopen` when the same task needs another edit
+7. Merge or discard only on an explicit request and after DSH approval; the in-app review panel provides the same decisions
+8. Preview cards, the live worktree window, and the session-end review panel reflect the structured tool results
 
 ## Uninstall
 
@@ -99,14 +100,14 @@ The package is one installable DSH bundle with several internal Cordis roles:
 - `ctx.univer` is the only Host domain API used by the consumers;
 - `host/webServer` exposes `GET /univer-api/status`, `POST /univer-api/gateway/start`, `GET /univer-api/state`, and `POST /univer-api/worktree-action`;
 - the Tools Consumer exposes domain tools instead of a generic CLI passthrough;
-- `host/processes/gateway` owns the bundled Gateway process and Viewer assets; `host/adapters/unit-content` starts an isolated one-shot Unit Content Worker from `workers/unit-content` for import, inspect, execute, and export;
+- `host/processes/gateway` owns the bundled Gateway process and Viewer assets; `host/adapters/unit-content` starts an isolated one-shot Unit Content Worker from `workers/unit-content` for import, inspect, execute, export, and render-source reads; the machine render page supplies Slide layout facts and SVG text metrics without exposing screenshots;
 - the Client recovers structured targets from durable tool events, polls state through its API layer, and renders preview, live-window, and review components.
 
 `src/` contains the Host, Client, Gateway, Unit Content Worker, and Viewer sources. The Viewer application and its local rendering support were copied from `univer-cli` so this repository builds every application it ships. See [the architecture decision](docs/architecture.md) for directories, dependencies, and trust boundaries.
 
 ## Development
 
-`lib/`, `artifacts/`, `dist/`, and the archives (`univer-dsh-plugin.zip`, `*.tgz`) are **generated** and never committed. `pnpm run build` compiles the Host, Client, Gateway, Unit Content Worker, and Viewer from `src/`.
+`lib/`, `artifacts/`, `dist/`, and the archives (`univer-dsh-plugin.zip`, `*.tgz`) are **generated** and never committed. `pnpm run build` compiles the Host, Client, Gateway, Unit Content Worker, machine render page, and Viewer from `src/`.
 
 ```sh
 pnpm run build

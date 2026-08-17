@@ -16,8 +16,10 @@ const scratch = await mkdtemp(join(tmpdir(), "dsh-univer-integration-smoke-"));
 const workspace = await realpath(scratch);
 const file = join(workspace, "smoke.univer");
 const source = join(workspace, "import.csv");
+const svgSource = join(workspace, "slide.svg");
 const exported = join(workspace, "smoke.xlsx");
 await writeFile(source, "name,value\nalpha,1\nbeta,2\n");
+await writeFile(svgSource, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540"><rect width="960" height="540" fill="#f7f8fb"/><text x="80" y="160" font-family="Arial" font-size="54" fill="#182230">Bundled SVG</text></svg>');
 
 const foreign = createHttpServer((_request, response) => response.end("not a Univer Gateway"));
 await new Promise((resolve, reject) => {
@@ -69,6 +71,26 @@ try {
 	const removed = await service.unit({ ...scoped, action: "remove", worktreeId, unitId: temporary.result.unitId });
 	if (removed.result?.removed !== true) throw new Error(`remove Unit failed: ${JSON.stringify(removed)}`);
 
+	const slide = await service.unit({ ...scoped, action: "create", worktreeId, kind: "slide", name: "Rendered" });
+	const slideUnitId = slide.result?.unitId;
+	if (typeof slideUnitId !== "string") throw new Error(`Slide Unit failed: ${JSON.stringify(slide)}`);
+	const compiledSvg = await service.compileSvg({
+		...scoped,
+		source: svgSource,
+		sourceWorkspace: workspace,
+		worktreeId,
+		unitId: slideUnitId,
+		page: 1,
+	});
+	if (compiledSvg.operation !== "compile-svg" || compiledSvg.result?.execution?.committed !== true) {
+		throw new Error(`SVG compile/apply failed: ${JSON.stringify(compiledSvg)}`);
+	}
+	const layout = await service.lintUnitLayout({ ...scoped, worktreeId, unitId: slideUnitId });
+	if (layout.operation !== "lint" || layout.result?.kind !== "unit-layout-lint"
+		|| layout.result?.coverage?.pages?.length !== 1 || !Array.isArray(layout.result?.findings)) {
+		throw new Error(`Slide layout lint failed: ${JSON.stringify(layout)}`);
+	}
+
 	const executed = await service.executeUnitContent({
 		...scoped,
 		worktreeId,
@@ -110,7 +132,7 @@ try {
 	}
 
 	const selected = await service.status({ ...scoped, worktreeId });
-	if (selected.result?.selectedWorktree?.units?.length !== 2) {
+	if (selected.result?.selectedWorktree?.units?.length !== 3) {
 		throw new Error(`worktree status did not return explicit Units: ${JSON.stringify(selected)}`);
 	}
 	const inspected = await service.inspectUnitContent({ ...scoped, worktreeId, unitId, range: "A1:B2" });
@@ -136,7 +158,7 @@ try {
 	await expectTransition(worktreeId, "ready", "ready");
 	await expectTransition(worktreeId, "merge", "merged");
 	const merged = await service.status(scoped);
-	if (merged.result?.trunk?.units?.length !== 2) throw new Error(`merge did not publish Units: ${JSON.stringify(merged)}`);
+	if (merged.result?.trunk?.units?.length !== 3) throw new Error(`merge did not publish Units: ${JSON.stringify(merged)}`);
 
 	const disposable = await service.worktree({ ...scoped, action: "create", name: "discard me" });
 	const disposableId = disposable.result?.worktreeId;
@@ -146,7 +168,7 @@ try {
 		throw new Error(`discard transition failed: ${JSON.stringify(discarded)}`);
 	}
 
-	console.log("integration smoke OK (new/status/Unit/import/API/execute/inspect/export/Worktree lifecycle, no global CLI)");
+	console.log("integration smoke OK (new/status/Unit/import/API/execute/inspect/export/lint/compile-svg/Worktree lifecycle, no global CLI)");
 } finally {
 	await service.dispose();
 	await new Promise((resolve, reject) => foreign.close((error) => error === undefined ? resolve() : reject(error)));

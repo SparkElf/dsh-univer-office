@@ -84,6 +84,23 @@ export interface ExportUnitContentRequest extends ScopedFileRequest {
   readonly worktreeId?: WorktreeId
 }
 
+/** Request for deterministic Slide layout analysis. */
+export interface LintUnitLayoutRequest extends ScopedFileRequest {
+  readonly unitId: UnitId
+  readonly worktreeId?: WorktreeId
+  readonly pages?: readonly (number | string)[]
+}
+
+/** Request for compiling one SVG and applying it to a Slide page. */
+export interface CompileSvgRequest extends ScopedFileRequest {
+  readonly source: string
+  readonly sourceWorkspace: WorkspacePath
+  readonly worktreeId: WorktreeId
+  readonly unitId: UnitId
+  readonly page: number
+  readonly mode?: 'replace' | 'add'
+}
+
 /** Version-matched Facade reference lookup. */
 export type ApiReferenceRequest =
   | {
@@ -97,7 +114,7 @@ export type ApiReferenceRequest =
 /** Structured operation result logged in the DSH session. */
 export interface UniverOperationResult {
   readonly ok: true
-  readonly operation: 'new' | 'status' | 'inspect' | 'execute' | 'import' | 'export' | 'unit' | 'worktree'
+  readonly operation: 'new' | 'status' | 'inspect' | 'execute' | 'import' | 'export' | 'lint' | 'compile-svg' | 'unit' | 'worktree'
   readonly file: string
   readonly result: JsonValue
 }
@@ -124,5 +141,7 @@ export interface UniverServiceMethods {
   executeUnitContent(request: ExecuteUnitContentRequest, signal?: AbortSignal): Promise<UniverOperationResult>
   importUnitContent(request: ImportUnitContentRequest, signal?: AbortSignal): Promise<UniverOperationResult>
   exportUnitContent(request: ExportUnitContentRequest, signal?: AbortSignal): Promise<UniverOperationResult>
+  lintUnitLayout(request: LintUnitLayoutRequest, signal?: AbortSignal): Promise<UniverOperationResult>
+  compileSvg(request: CompileSvgRequest, signal?: AbortSignal): Promise<UniverOperationResult>
   apiReference(request: ApiReferenceRequest): Promise<UniverApiResult>
 }

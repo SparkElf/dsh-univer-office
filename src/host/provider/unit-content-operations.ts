@@ -3,7 +3,7 @@ import { UnitContentWorker } from '../adapters/unit-content/worker.ts'
 import type { UnitContentInspectionQuery, UnitContentWorkerTarget } from '../adapters/unit-content/protocol.ts'
 import { GatewayClient } from '../adapters/gateway/client.ts'
 import { GatewayFileApi, fileKeyOf } from '../adapters/gateway/file-api.ts'
-import { mapUnits, type GatewayUnit } from '../adapters/gateway/mapping.ts'
+import { isRecord, mapUnits, type GatewayUnit } from '../adapters/gateway/mapping.ts'
 import { GatewayWorktreeApi } from '../adapters/gateway/worktree-api.ts'
 import type { ExportUnitContentRequest, InspectUnitContentRequest, JsonValue, UniverOperationResult, UniverUnitKind } from '../service/types.ts'
 import { UniverError } from '../service/errors.ts'
@@ -72,6 +72,22 @@ export class UnitContentOperations {
     return { ok: true, operation: 'export', file: request.file, result }
   }
 
+  /** Load one Unit snapshot for machine rendering. */
+  async renderSource(
+    gateway: string,
+    file: string,
+    unitId: string,
+    worktreeId?: string,
+    signal?: AbortSignal,
+  ): Promise<{ readonly unitType: UniverUnitKind; readonly unitData: { [key: string]: JsonValue } }> {
+    const target = await this.resolveTarget(gateway, file, unitId, worktreeId)
+    const value = await this.worker.run({ ...target, operation: 'render-source' }, signal)
+    if (!isRecord(value) || !isUnitKind(value.unitType) || !isRecord(value.unitData)) {
+      throw new UniverError('Unit content worker returned an invalid render source.', 'UNIT_CONTENT_WORKER_INVALID_RESPONSE')
+    }
+    return { unitType: value.unitType, unitData: value.unitData }
+  }
+
   /** Import one Office file into a JSON Unit snapshot. */
   import(sourcePath: string, signal?: AbortSignal): Promise<{ readonly kind: UniverUnitKind; readonly snapshot: JsonValue }> {
     const kind = importKind(sourcePath)
@@ -115,6 +131,10 @@ function unitType(kind: UniverUnitKind): 1 | 2 | 3 | 5 | 6 {
   if (kind === 'slide') return 3
   if (kind === 'base') return 5
   return 6
+}
+
+function isUnitKind(value: JsonValue | undefined): value is UniverUnitKind {
+  return value === 'sheet' || value === 'doc' || value === 'slide' || value === 'base' || value === 'board'
 }
 
 function selectUnit(units: readonly GatewayUnit[], requested: string | undefined): GatewayUnit {

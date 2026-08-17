@@ -16,6 +16,8 @@ import type {
   FileStatusRequest,
   ImportUnitContentRequest,
   InspectUnitContentRequest,
+  LintUnitLayoutRequest,
+  CompileSvgRequest,
   JsonValue,
   NewUniverFileRequest,
   UnitOperationRequest,
@@ -31,12 +33,14 @@ import { GatewaySupervisor } from '../processes/gateway/supervisor.ts'
 import { UnitContentOperations } from './unit-content-operations.ts'
 import { StateCache } from './state-cache.ts'
 import { WorktreeOperations } from './worktree-operations.ts'
+import { RenderOperations } from './render-operations.ts'
 
 /** Local Service Provider backed by the bundled Gateway and Unit content worker. */
 export class GatewayUniverService extends UniverService {
   private readonly gatewaySupervisor: GatewaySupervisor
   private readonly unitContent: UnitContentOperations
   private readonly worktrees: WorktreeOperations
+  private readonly render: RenderOperations
   private readonly stateCache: StateCache<string, FileState>
   private readonly unitCache: StateCache<string, readonly import('../../shared/wire/state.ts').ChangedUnit[]>
   private readonly api: ApiReference
@@ -50,6 +54,7 @@ export class GatewayUniverService extends UniverService {
       config.unitContentOperationTimeoutMs,
     )
     this.worktrees = new WorktreeOperations(config.gatewayRequestTimeoutMs, config.gatewayMutationTimeoutMs)
+    this.render = new RenderOperations()
     this.stateCache = new StateCache(config.stateCacheTtlMs)
     this.unitCache = new StateCache(config.unitCacheTtlMs)
     this.api = createStandardApiReference()
@@ -233,6 +238,65 @@ export class GatewayUniverService extends UniverService {
     ])
     const gateway = await this.requireGateway()
     return this.unitContent.export(gateway, request, signal)
+  }
+
+  /** Analyze deterministic Slide layout facts without producing screenshots. */
+  async lintUnitLayout(request: LintUnitLayoutRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
+    await assertAuthorizedPath(request.workspace, request.file, true)
+    const gateway = await this.requireGateway()
+    const source = await this.unitContent.renderSource(
+      gateway,
+      request.file,
+      request.unitId,
+      request.worktreeId,
+      signal,
+    )
+    const result = await this.render.lint(source, request.pages, signal)
+    return { ok: true, operation: 'lint', file: request.file, result }
+  }
+
+  /** Compile one SVG and commit the generated Slide mutations to a draft worktree. */
+  async compileSvg(request: CompileSvgRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
+    await Promise.all([
+      assertAuthorizedPath(request.workspace, request.file, true),
+      assertAuthorizedPath(request.sourceWorkspace, request.source, true),
+    ])
+    if (!Number.isSafeInteger(request.page) || request.page < 1) {
+      throw new UniverError('SVG target page must be a positive integer.', 'INVALID_REQUEST')
+    }
+    const gateway = await this.requireGateway()
+    await this.requireWorktreeStatus(gateway, request.file, request.worktreeId, 'draft')
+    const compiled = await this.render.compileSvg({
+      source: request.source,
+      workspace: request.sourceWorkspace,
+      page: request.page,
+      ...(request.mode === undefined ? {} : { mode: request.mode }),
+      ...(signal === undefined ? {} : { signal }),
+    })
+    const execution = await this.unitContent.execute(
+      gateway,
+      request.file,
+      compiled.code,
+      request.worktreeId,
+      request.unitId,
+      signal,
+    )
+    this.invalidate(request.file, request.worktreeId)
+    return {
+      ok: true,
+      operation: 'compile-svg',
+      file: request.file,
+      result: {
+        sourcePath: request.source,
+        page: compiled.page,
+        mode: compiled.mode,
+        viewport: compiled.viewport,
+        warnings: [...compiled.warnings],
+        lints: [...compiled.lints],
+        textMeasure: compiled.textMeasure,
+        execution: execution.result,
+      },
+    }
   }
 
   /** Search or show the Facade API reference bundled for this plugin version. */

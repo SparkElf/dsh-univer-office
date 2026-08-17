@@ -49,6 +49,10 @@ interface ExportRequest extends BaseRequest {
   readonly outputPath: string;
 }
 
+interface RenderSourceRequest extends BaseRequest {
+  readonly operation: "render-source";
+}
+
 interface ImportRequest {
   readonly operation: "import";
   readonly sourcePath: string;
@@ -58,7 +62,7 @@ interface ImportRequest {
     | UniverInstanceType.UNIVER_SLIDE;
 }
 
-type WorkerRequest = InspectRequest | ExecuteRequest | ExportRequest | ImportRequest;
+type WorkerRequest = InspectRequest | ExecuteRequest | ExportRequest | RenderSourceRequest | ImportRequest;
 
 interface WorkerEnvelope {
   readonly ok: boolean;
@@ -167,6 +171,11 @@ async function main(): Promise<JsonValue> {
           ...(request.worktreeId === undefined ? {} : { worktreeId: request.worktreeId }),
         };
       }
+      case "render-source":
+        return {
+          unitType: unitKind(request.unitType),
+          unitData: await collaboration.exportUnitData() as unknown as JsonValue,
+        };
     }
   } finally {
     await collaboration.close();
@@ -369,6 +378,9 @@ function parseRequest(value: unknown): WorkerRequest {
     const outputPath = requiredString(request.outputPath, "outputPath");
     if (!isAbsolute(outputPath)) invalidRequest("outputPath must be absolute");
     return { ...base, operation: "export", outputPath };
+  }
+  if (request.operation === "render-source") {
+    return { ...base, operation: "render-source" };
   }
   throw codedError("UNIT_CONTENT_WORKER_REQUEST_INVALID", "Unknown Unit content worker operation");
 }
