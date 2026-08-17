@@ -1,9 +1,14 @@
 # Generated build artifacts — never commit these.
-# Source lives under src/. Generated lib/ and the runtime build under vendor/
-# are intentionally versioned for DSH loading and release installs.
+# lib/, the worker, and gateway.cjs are built from src/ over the SDK:
+#   pnpm run build
+# vendor/collaboration/artifacts/viewer is a prebuilt front-end bundle from the
+# univer-cli collab-web app (44MB, 70-file vite app over 100+ SDK deps); it is
+# not rebuilt from this repo's src/ and is kept as a committed runtime asset.
 dist/
+lib/
 node_modules/
-!vendor/unit-content/artifacts/node_modules/
-!vendor/unit-content/artifacts/node_modules/**
+vendor/unit-content/
+vendor/collaboration/upstream/
+vendor/collaboration/artifacts/gateway.cjs
 *.tgz
 *.zip

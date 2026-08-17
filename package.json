@@ -1,5 +1,5 @@
 {
-  "name": "@univer-cli/dsh-univer-plugin",
+  "name": "dsh-univer-office",
   "version": "0.2.0",
   "description": "DSH × Univer integration with a bundled collaboration Gateway and Viewer: inline previews, live floating Worktree windows, and session-end review actions in DeepSeek Harness.",
   "type": "module",
@@ -10,7 +10,6 @@
   },
   "files": [
     "lib",
-    "src",
     "docs",
     "vendor/collaboration/artifacts",
     "vendor/collaboration/README.md",
@@ -46,11 +45,11 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dream-num/dsh-univer-plugin.git"
+    "url": "git+https://github.com/dream-num/dsh-univer-office.git"
   },
-  "homepage": "https://github.com/dream-num/dsh-univer-plugin",
+  "homepage": "https://github.com/dream-num/dsh-univer-office",
   "bugs": {
-    "url": "https://github.com/dream-num/dsh-univer-plugin/issues"
+    "url": "https://github.com/dream-num/dsh-univer-office/issues"
   },
   "dsh": {
     "bundle": {
@@ -67,16 +66,20 @@
     }
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "pnpm run build:lib && pnpm run build:worker && pnpm run build:gateway",
+    "build:lib": "node scripts/build.mjs lib",
+    "build:worker": "node scripts/build.mjs worker",
+    "build:gateway": "node scripts/build.mjs gateway",
     "typecheck": "tsc --project tsconfig.json --noEmit",
-    "sync:collaboration": "node scripts/sync-collaboration.mjs",
-    "sync:unit-content": "node scripts/sync-unit-content.mjs",
     "test:integration": "node test/integration-smoke.mjs",
     "test:host": "node test/host-smoke.mjs",
     "test:client": "node test/client-smoke.mjs",
     "test": "pnpm run build && pnpm run test:host && pnpm run test:integration && pnpm run test:client"
   },
   "dependencies": {
+    "@univerjs-pro/cli-assets": "0.1.0",
+    "@univerjs-pro/engine-formula-rust-binding": "1.0.0-insiders.20260811-001a0e5",
+    "@univerjs-pro/uexcli": "0.3.2",
     "libsql": "^0.5.29"
   },
   "peerDependencies": {
@@ -95,19 +98,32 @@
     "@deepseek-ai/dsh-session": "0.1.0-rc.6",
     "@deepseek-ai/dsh-tools": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.1",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
     "@univer-cli/content-execution": "1.0.0-insiders.20260813-7c9aa50",
     "@univer-cli/content-inspection": "1.0.0-insiders.20260813-7c9aa50",
     "@univer-cli/headless-univer": "1.0.0-insiders.20260813-7c9aa50",
     "@univer-cli/unit-exchange": "1.0.0-insiders.20260813-7c9aa50",
     "@univer-cli/univer-collaboration-runtime": "1.0.0-insiders.20260813-7c9aa50",
-    "@types/node": "^24.13.3",
-    "@univerjs-pro/cli-assets": "0.1.0",
-    "@univerjs-pro/engine-formula-rust-binding": "1.0.0-insiders.20260811-001a0e5",
-    "@univerjs-pro/uexcli": "0.3.2",
+    "@univerjs-pro/boards": "1.0.0-insiders.20260813-7c9aa50",
+    "@univerjs-pro/collaboration": "1.0.0-insiders.20260813-7c9aa50",
+    "@univerjs-pro/collaboration-service": "1.0.0-insiders.20260813-7c9aa50",
+    "@univerjs-pro/collaboration-transport-node": "1.0.0-insiders.20260813-7c9aa50",
+    "@univerjs-pro/collaboration-worktree-service": "1.0.0-insiders.20260813-7c9aa50",
+    "@univerjs-pro/embed": "1.0.0-insiders.20260813-7c9aa50",
+    "@univerjs-pro/slides": "1.0.0-insiders.20260813-7c9aa50",
     "@univerjs/core": "1.0.0-insiders.20260813-7c9aa50",
-    "@types/react": "^19.2.18",
+    "@univerjs/protocol": "1.0.0-insiders.20260813-7c9aa50",
+    "busboy": "^1.6.0",
     "esbuild": "^0.28.2",
+    "jsdom": "^26.1.0",
     "react": "^19.2.8",
-    "typescript": "^7.0.2"
+    "react-dom": "^19.2.8",
+    "sirv": "^3.0.2",
+    "typescript": "^7.0.2",
+    "ws": "^8.21.3",
+    "@univerjs-pro/bases": "1.0.0-insiders.20260813-7c9aa50",
+    "@univerjs-pro/collaboration-endpoint": "1.0.0-insiders.20260813-7c9aa50",
+    "@univerjs-pro/collaboration-worktree-endpoint": "1.0.0-insiders.20260813-7c9aa50"
   }
 }
