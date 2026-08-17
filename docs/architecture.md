@@ -142,6 +142,10 @@ src/
     collab-service.ts                # Gateway 协作领域实现
     contract/                        # Gateway wire types
     univerfile-sqlite/               # `.univer` 持久化
+  viewer-app/                        # Viewer browser application
+  viewer-support/
+    render-preset/                   # Viewer 的 Univer 渲染组合
+    importrange-formula/             # Viewer 的 IMPORTRANGE plugin
   client/
     index.tsx                        # dsh.client 入口
     api/
@@ -173,12 +177,10 @@ lib/
   index.js                           # gitignored 的 Host 生成入口
   client.js                          # gitignored 的 ModuleLoader Client bundle
   types/                             # gitignored 的类型声明
-vendor/
-  collaboration/
-    artifacts/viewer/                # 版本化的预构建 Viewer
-    artifacts/gateway.cjs            # 从 gateway-app 生成，gitignored
-  unit-content/
-    artifacts/unit-content-worker.mjs # 从 workers/unit-content 生成，gitignored
+artifacts/                            # gitignored 的发布运行产物
+  viewer/                            # 从 viewer-app 生成
+  gateway.cjs                        # 从 gateway-app 生成
+  unit-content-worker.mjs           # 从 workers/unit-content 生成
 test/
   host-smoke.mjs
   client-smoke.mjs
@@ -218,8 +220,9 @@ bundled skill provider -> DSH skill registry
 4. Client component 不直接 `fetch`；HTTP 访问集中在 `client/api`，轮询和 mutation 状态集中在 hooks。
 5. `shared/wire` 不依赖 Node.js、React、Cordis 或上游 Univer 包，且所有值必须可 JSON 序列化。
 6. Gateway 与 Worker 的应用源码分别属于 `src/gateway-app` 和 `src/workers/unit-content`。它们通过精确版本 SDK package 构建，不从外部 checkout 同步源码；生成 executable 不入库。
-7. Skill Provider 只负责发现与加载包内 Markdown，不调用 Service，也不复制工具 schema。
-8. 所有 Cordis 注册通过 effect 生命周期撤销；插件卸载后不得遗留路由、工具、Skill provider、定时器或子进程。
+7. Viewer 及其 render preset 和 IMPORTRANGE plugin 是本仓库的普通源码；可从 `univer-cli` 更新这些实现，但不提交上游源码快照目录或预构建 Viewer。
+8. Skill Provider 只负责发现与加载包内 Markdown，不调用 Service，也不复制工具 schema。
+9. 所有 Cordis 注册通过 effect 生命周期撤销；插件卸载后不得遗留路由、工具、Skill provider、定时器或子进程。
 
 ## 6. Service Definition
 
@@ -318,9 +321,9 @@ Client 必须满足：
 
 ## 12. 构建与发布
 
-`src` 是插件自有手写源码。`pnpm run build` 分别生成 Host/Client bundle、Unit Content Worker 和 Gateway；`lib`、Worker executable 与 Gateway executable 都被 gitignore，并在打包前重新生成。Host 构建为 Node ESM，Client 构建为 DSH ModuleLoader 可加载的浏览器 bundle，Gateway 构建为 Node CJS 子进程，Worker 构建为 Node ESM 子进程。
+`src` 包含插件发布的所有 application 源码；Viewer application、render preset 和 IMPORTRANGE plugin 源码从 `univer-cli` 复制到本仓库后直接维护。`pnpm run build` 生成 Host/Client bundle、Unit Content Worker、Gateway 和 Viewer；`lib` 与 `artifacts` 都被 gitignore，并在打包前重新生成。Host 构建为 Node ESM，Client 构建为 DSH ModuleLoader 可加载的浏览器 bundle，Gateway 构建为 Node CJS 子进程，Worker 构建为 Node ESM 子进程，Viewer 构建为由 Gateway 提供的 Vite 静态资产。
 
-发布包包含运行所需的 Gateway、Viewer、Unit Content Worker、Office 转换器、平台依赖、Univer license 与 bundled Skills。Gateway、Worker 和 Host 直接使用 manifest 中精确版本的 Univer SDK/API Reference packages；JavaScript SDK 被 bundle，平台原生 package 由包管理器为目标机器安装。Viewer bundle 是唯一版本化的预构建运行资产。
+发布包包含运行所需的 Gateway、Viewer、Unit Content Worker、Office 转换器、平台依赖、Univer license 与 bundled Skills。Gateway、Worker、Viewer 和 Host 直接使用 manifest 中精确版本的 Univer SDK/API Reference packages；JavaScript SDK 被 bundle，平台原生 package 由包管理器为目标机器安装。发布时只打包从当前源码生成的运行产物。
 
 原生公式引擎、Office 转换器与 SQLite 依赖仍具有平台属性。release workflow 必须在目标平台安装 lockfile 所指定的依赖后构建和测试，不能把一个平台的 `node_modules` 复制为通用发布物。
 
@@ -358,5 +361,5 @@ Client 必须满足：
 - 是否依赖外部 CLI 或外部 Gateway；
 - worktree 用户审阅权归属；
 - 工具能力与 bundled Skills 的对应关系；
-- 源码构建、预构建 Viewer 与许可证策略；
+- 源码构建、Viewer 与许可证策略；
 - 单包与多包的发布决策。

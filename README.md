@@ -102,11 +102,11 @@ The package is one installable DSH bundle with several internal Cordis roles:
 - `host/processes/gateway` owns the bundled Gateway process and Viewer assets; `host/adapters/unit-content` starts an isolated one-shot Unit Content Worker from `workers/unit-content` for import, inspect, execute, and export;
 - the Client recovers structured targets from durable tool events, polls state through its API layer, and renders preview, live-window, and review components.
 
-`src/` contains the hand-written Host, Client, Gateway application, and Unit Content Worker sources. `lib/`, the Gateway executable, and the Worker executable are generated and gitignored; only the prebuilt Viewer remains a checked-in runtime asset. See [the architecture decision](docs/architecture.md) for directories, dependencies, and trust boundaries.
+`src/` contains the Host, Client, Gateway, Unit Content Worker, and Viewer sources. The Viewer application and its local rendering support were copied from `univer-cli` so this repository builds every application it ships. See [the architecture decision](docs/architecture.md) for directories, dependencies, and trust boundaries.
 
 ## Development
 
-`lib/`, the Gateway and Worker executables, `dist/`, and the archives (`univer-dsh-plugin.zip`, `*.tgz`) are **generated** and never committed. `pnpm run build` compiles all three applications from `src/`; the Viewer bundle under `vendor/collaboration/artifacts/viewer` is the only checked-in runtime artifact.
+`lib/`, `artifacts/`, `dist/`, and the archives (`univer-dsh-plugin.zip`, `*.tgz`) are **generated** and never committed. `pnpm run build` compiles the Host, Client, Gateway, Unit Content Worker, and Viewer from `src/`.
 
 ```sh
 pnpm run build

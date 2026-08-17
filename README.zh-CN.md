@@ -99,11 +99,11 @@ dsh plugin --profile web remove dsh-univer-office
 - `host/processes/gateway` 管理内置 Gateway 进程和 Viewer 资源；`host/adapters/unit-content` 为 import、inspect、execute、export 启动来自 `workers/unit-content` 的一次性 Unit Content Worker；
 - Client 从持久化工具事件恢复结构化目标，通过统一 API 层轮询状态，再由预览、实时浮窗和审阅组件渲染。
 
-`src/` 包含手写的 Host、Client、Gateway application 和 Unit Content Worker 源码。`lib/`、Gateway executable 与 Worker executable 均由构建生成并被 gitignore；只有预构建 Viewer 是版本化的运行资产。目录、依赖方向和信任边界见[架构决策](docs/architecture.md)。
+`src/` 包含 Host、Client、Gateway、Unit Content Worker 和 Viewer 源码。Viewer application 及其本地渲染支撑源码从 `univer-cli` 复制而来，本仓库会构建自己发布的所有 application。目录、依赖方向和信任边界见[架构决策](docs/architecture.md)。
 
 ## 开发
 
-`lib/`、Gateway 与 Worker executable、`dist/` 及归档产物（`univer-dsh-plugin.zip`、`*.tgz`）均为**生成物**，不入库。`pnpm run build` 从 `src/` 编译三个 application；`vendor/collaboration/artifacts/viewer` 下的 Viewer bundle 是唯一版本化的运行资产。
+`lib/`、`artifacts/`、`dist/` 及归档产物（`univer-dsh-plugin.zip`、`*.tgz`）均为**生成物**，不入库。`pnpm run build` 从 `src/` 构建 Host、Client、Gateway、Unit Content Worker 和 Viewer。
 
 ```sh
 pnpm run build

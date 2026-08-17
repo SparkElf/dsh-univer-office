@@ -1,15 +1,21 @@
 // Build the plugin application from source over the Univer SDK — the single
-// build mode (pnpm). Nothing is vendored from univer-cli; everything is
-// compiled from src/ with the SDK packages installed from the registry.
+// build mode (pnpm). The Viewer source lives in this repository alongside the
+// host, worker, and Gateway sources; SDK packages come from the registry.
 //
 //   pnpm run build:lib     → lib/index.js (host) + lib/client.js (client bundle)
-//   pnpm run build:worker  → vendor/unit-content/artifacts/unit-content-worker.mjs
-//   pnpm run build:gateway → vendor/collaboration/artifacts/gateway.cjs
-//   pnpm run build         → all three applications
+//   pnpm run build:worker  → artifacts/unit-content-worker.mjs
+//   pnpm run build:gateway → artifacts/gateway.cjs
+//   pnpm run build:viewer  → artifacts/viewer/
+//   pnpm run build         → all four applications
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { builtinModules } from 'node:module'
+import { resolve } from 'node:path'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { build } from 'esbuild'
+import { build as buildVite } from 'vite'
+import { createEmbedUiMenuSchemaAliases, createPrismComponentEsmPlugin } from './viewer-vite.mjs'
 
 const target = process.argv[2] ?? 'all'
 
@@ -77,7 +83,7 @@ if (target === 'all' || target === 'worker') {
   // Unit-content worker: a standalone process built from src/workers/unit-content
   // with the SDK dependencies inlined (except the platform binary packages, which
   // are resolved at runtime from the plugin's node_modules).
-  const workerOut = 'vendor/unit-content/artifacts/unit-content-worker.mjs'
+  const workerOut = 'artifacts/unit-content-worker.mjs'
   const workerExternal = [
     ...builtinModules.map((id) => `node:${id}`),
     ...builtinModules,
@@ -104,7 +110,7 @@ if (target === 'all' || target === 'worker') {
 if (target === 'all' || target === 'gateway') {
   // Collaboration Gateway: a standalone server built from the plugin-owned
   // gateway application sources (src/gateway-app) over the collaboration SDK.
-  const gatewayOut = 'vendor/collaboration/artifacts/gateway.cjs'
+  const gatewayOut = 'artifacts/gateway.cjs'
   const gatewayExternal = [
     ...builtinModules.map((id) => `node:${id}`),
     ...builtinModules,
@@ -126,6 +132,36 @@ if (target === 'all' || target === 'gateway') {
     sourcemap: false,
   })
   console.log('built', gatewayOut)
+}
+
+if (target === 'all' || target === 'viewer') {
+  const viewerRoot = resolve('src/viewer-app')
+  const viewerOut = resolve('artifacts/viewer')
+  await buildVite({
+    configFile: false,
+    root: viewerRoot,
+    build: {
+      target: 'esnext',
+      outDir: viewerOut,
+      emptyOutDir: true,
+    },
+    define: {
+      'process.env': '{}',
+    },
+    resolve: {
+      alias: {
+        ...createEmbedUiMenuSchemaAliases(viewerRoot),
+        '@univer/collab-gateway-contract': resolve('src/gateway-app/contract/index.ts'),
+        '@univer/render-preset/styles': resolve('src/viewer-support/render-preset/styles.ts'),
+        '@univer/render-preset/facades': resolve('src/viewer-support/render-preset/facades.ts'),
+        '@univer/render-preset/machine-locale': resolve('src/viewer-support/render-preset/machine-locale.ts'),
+        '@univer/render-preset': resolve('src/viewer-support/render-preset/index.ts'),
+        '@univer/importrange-formula': resolve('src/viewer-support/importrange-formula/index.ts'),
+      },
+    },
+    plugins: [react(), tailwindcss(), createPrismComponentEsmPlugin()],
+  })
+  console.log('built', viewerOut)
 }
 
 async function run(command, args) {
