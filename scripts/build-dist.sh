@@ -3,10 +3,10 @@
 #
 # dist/ and the archives are GENERATED — never commit them, and never edit
 # files under dist/ by hand. Hand-written source lives in src/; lib/ is built.
-# Package metadata, docs, vendored artifacts, and installers are copied below.
+# Package metadata, docs, skills, generated executables, Viewer, and installers are copied below.
 # re-run this script and publish the artifacts (npm publish / GitHub Release).
 #
-#   npm publish              # the package (lib/, vendored artifacts, scripts/, docs, patch)
+#   npm publish              # the package (lib/, artifacts, skills, scripts, docs, patch)
 #   univer-dsh-plugin.zip    # end-user zip: package + install.command + INSTALL*.txt
 set -euo pipefail
 
@@ -22,15 +22,19 @@ PKG_DIR="$DIST/univer"
 rm -rf "$PKG_DIR"
 mkdir -p "$PKG_DIR/lib"
 cp -R "$ROOT/lib/." "$PKG_DIR/lib/"
-mkdir -p "$PKG_DIR/src" "$PKG_DIR/docs"
-cp -R "$ROOT/src/." "$PKG_DIR/src/"
+mkdir -p "$PKG_DIR/docs" "$PKG_DIR/skills"
 cp -R "$ROOT/docs/." "$PKG_DIR/docs/"
+cp -R "$ROOT/skills/." "$PKG_DIR/skills/"
 mkdir -p "$PKG_DIR/vendor/collaboration"
 cp -R "$ROOT/vendor/collaboration/artifacts" "$PKG_DIR/vendor/collaboration/"
 cp "$ROOT/vendor/collaboration/README.md" "$ROOT/vendor/collaboration/SOURCE.json" "$PKG_DIR/vendor/collaboration/"
 mkdir -p "$PKG_DIR/vendor/unit-content"
 cp -R "$ROOT/vendor/unit-content/artifacts" "$PKG_DIR/vendor/unit-content/"
-cp "$ROOT/vendor/unit-content/README.md" "$ROOT/vendor/unit-content/SOURCE.json" "$PKG_DIR/vendor/unit-content/"
+for metadata in README.md SOURCE.json; do
+  if [[ -f "$ROOT/vendor/unit-content/$metadata" ]]; then
+    cp "$ROOT/vendor/unit-content/$metadata" "$PKG_DIR/vendor/unit-content/"
+  fi
+done
 node "$ROOT/scripts/copy-gateway-dependencies.mjs" "$PKG_DIR"
 mkdir -p "$PKG_DIR/scripts"
 cp "$ROOT/scripts/install.js" "$ROOT/scripts/copy-gateway-dependencies.mjs" "$PKG_DIR/scripts/"

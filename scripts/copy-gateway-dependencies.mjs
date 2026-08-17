@@ -19,6 +19,11 @@ const nativePackages = [
 	"@libsql/linux-arm-musleabihf",
 	"@libsql/win32-x64-msvc",
 ];
+const runtimePackages = [
+	"@univerjs-pro/engine-formula-rust-binding",
+	"@univerjs-pro/uexcli",
+	"@univerjs-pro/cli-assets",
+];
 
 /** Copy libsql's JavaScript packages, platform binary, and bundled license files. */
 export function copyGatewayDependencies(targetRoot) {
@@ -27,6 +32,20 @@ export function copyGatewayDependencies(targetRoot) {
 	for (const name of ["libsql", "@neon-rs/load", "detect-libc"]) {
 		const source = name === "libsql" ? libsql : locatePackage(name, requireFromLibsql);
 		copyPackage(source, join(targetRoot, "node_modules", ...name.split("/")));
+	}
+	for (const name of runtimePackages) {
+		const source = locatePackage(name, requireFromPlugin);
+		copyPackage(source, join(targetRoot, "node_modules", ...name.split("/")));
+		const manifest = JSON.parse(readFileSync(join(source, "package.json"), "utf8"));
+		const requireFromRuntimePackage = createRequire(join(source, "package.json"));
+		for (const optionalName of Object.keys(manifest.optionalDependencies ?? {})) {
+			try {
+				const optionalSource = locatePackage(optionalName, requireFromRuntimePackage);
+				copyPackage(optionalSource, join(targetRoot, "node_modules", ...optionalName.split("/")));
+			} catch (error) {
+				if (error?.code !== "MODULE_NOT_FOUND") throw error;
+			}
+		}
 	}
 	let nativeCount = 0;
 	for (const name of nativePackages) {
@@ -42,7 +61,7 @@ export function copyGatewayDependencies(targetRoot) {
 }
 
 function locatePackage(name, requireFrom) {
-	let cursor = dirname(requireFrom.resolve(name));
+	let cursor = dirname(resolvePackageEntry(name, requireFrom));
 	for (;;) {
 		const manifest = join(cursor, "package.json");
 		if (existsSync(manifest)) {
@@ -53,6 +72,22 @@ function locatePackage(name, requireFrom) {
 		if (parent === cursor) throw new Error(`package root not found for ${name}`);
 		cursor = parent;
 	}
+}
+
+function resolvePackageEntry(name, requireFrom) {
+	const candidates = name === "@univerjs-pro/cli-assets"
+		? [`${name}/manifest.json`]
+		: [name, `${name}/package.json`];
+	let missing;
+	for (const candidate of candidates) {
+		try {
+			return requireFrom.resolve(candidate);
+		} catch (error) {
+			if (error?.code !== "MODULE_NOT_FOUND" && error?.code !== "ERR_PACKAGE_PATH_NOT_EXPORTED") throw error;
+			missing = error;
+		}
+	}
+	throw missing;
 }
 
 function copyPackage(source, destination) {

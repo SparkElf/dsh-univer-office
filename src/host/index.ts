@@ -2,6 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { resolveConfig } from './config.ts'
 import type { Config as UniverConfig } from './config.ts'
 import * as provider from './provider/plugin.ts'
+import * as skills from './skills/plugin.ts'
 import * as tools from './tools/plugin.ts'
 import * as webServer from './webServer/plugin.ts'
 
@@ -22,4 +23,5 @@ export function apply(ctx: Context, config: UniverConfig = {}): void {
   ctx.plugin(provider, resolved)
   ctx.plugin(webServer)
   if (resolved.tools) ctx.plugin(tools, resolved)
+  if (resolved.skills) ctx.plugin(skills)
 }

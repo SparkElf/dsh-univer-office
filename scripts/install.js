@@ -42,11 +42,13 @@ function deploy() {
 	// Explicit copies — never a recursive copy of the whole package: the npx
 	// cache path itself contains node_modules, which path filters can't see.
 	cpSync(join(PKG_ROOT, "lib"), join(TARGET, "lib"), { recursive: true });
+	cpSync(join(PKG_ROOT, "skills"), join(TARGET, "skills"), { recursive: true });
 	cpSync(join(PKG_ROOT, "vendor", "collaboration", "artifacts"), join(TARGET, "vendor", "collaboration", "artifacts"), { recursive: true });
 	cpSync(join(PKG_ROOT, "vendor", "unit-content", "artifacts"), join(TARGET, "vendor", "unit-content", "artifacts"), { recursive: true });
 	for (const vendorName of ["collaboration", "unit-content"]) {
 		for (const metadata of ["README.md", "SOURCE.json"]) {
-			cpSync(join(PKG_ROOT, "vendor", vendorName, metadata), join(TARGET, "vendor", vendorName, metadata));
+			const source = join(PKG_ROOT, "vendor", vendorName, metadata);
+			if (existsSync(source)) cpSync(source, join(TARGET, "vendor", vendorName, metadata));
 		}
 	}
 	copyGatewayDependencies(TARGET);

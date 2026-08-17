@@ -13,14 +13,15 @@
 - `provider` 实现该接口并拥有状态缓存、文件操作和 worktree 操作；
 - `webServer` 把需要浏览器访问的服务能力映射为 Host HTTP API；
 - `tools` 把适合模型调用的内容创作能力映射为 DSH 工具；
+- `skills` 向 DSH Skill Registry 提供按需加载的 Univer 工作流与 Unit 专项知识；
 - `processes/gateway` 负责插件内置 Gateway 进程和 Viewer 资源；
 - `workers/unit-content` 是一次性 Unit Content Worker 的子进程入口；
 - `client` 负责 DSH 浏览器端的预览、实时 worktree 窗口和用户审阅界面；
 - `shared/wire` 只存放 Host 与 Client 共享的纯 JSON 数据类型。
 
-用户只安装本插件即可使用全部功能。全局 `univer` CLI 不属于运行依赖；Unit 的检查、执行和导出由插件内置的一次性 Unit Content Worker 完成。
+用户只安装本插件即可使用全部功能。全局 `univer` CLI 不属于运行依赖；Unit 的导入、检查、执行和导出由插件内置的一次性 Unit Content Worker 完成。
 
-代码、API 和界面使用具体名称 `Gateway`、`Viewer`、`Unit Content Worker` 和 `artifacts`，不使用含义宽泛的 `runtime` 或 `daemon` 作为本插件领域名称。上游 vendored 代码中的既有名称可以原样保留。
+代码、API 和界面使用具体名称 `Gateway`、`Viewer`、`Unit Content Worker` 和 `artifacts`，不使用含义宽泛的 `runtime` 或 `daemon` 作为本插件领域名称。
 
 ## 2. 必须保留的产品功能
 
@@ -34,7 +35,9 @@
 - 插件按需启动并管理内置 Gateway 和 Viewer；
 - 多个 DSH 会话的预览目标与审阅状态相互隔离；
 - 中英文界面；
-- 最终由 `univer_*` 工具完成内容创建、检查、执行和导出，不要求用户安装 CLI。
+- 模型可创建空 `.univer` 文件、管理 worktree 与 Unit、导入 Office 文件、查询 Univer API、修改、检查和导出内容；
+- `ready` 与 `reopen` 属于模型工作流，`merge` 与 `discard` 只在用户明确要求且 DSH 审批通过后执行；
+- 当前不提供模型截图工具；视觉结果重要时必须明确说明尚未完成视觉验证。
 
 原型的文件布局、类名、HTTP 路径、CSS 类名、bash 命令解析方式和内部数据格式均不需要保留。
 
@@ -43,6 +46,8 @@
 ```mermaid
 flowchart LR
     Model["Agent / Model"] --> Tools["Tools Consumer"]
+    Model --> SkillRegistry["DSH Skill Registry"]
+    Skills["Bundled Skill Provider"] --> SkillRegistry
     Browser["DSH Client"] --> WebServer["Host webServer Consumer"]
     Tools --> Service["Univer Service"]
     WebServer --> Service
@@ -57,7 +62,7 @@ flowchart LR
     Browser --> Viewer["Bundled Viewer served by Gateway"]
 ```
 
-根插件是组合入口。它必须由 DSH 配置以裸包名加载，使 DSH 能发现包清单中的 `dsh.client`；根插件再在独立 Cordis fiber 中挂载 Provider、webServer Consumer 和 Tools Consumer。
+根插件是组合入口。它必须由 DSH 配置以裸包名加载，使 DSH 能发现包清单中的 `dsh.client`；根插件再在独立 Cordis fiber 中挂载 Provider、webServer Consumer、Tools Consumer 和可配置的 Skill Provider。
 
 ### Host 与 Client 的边界
 
@@ -78,6 +83,7 @@ src/
       univer-service.ts              # Service Definition
       types.ts                       # 服务请求与返回类型
       identifiers.ts                 # branded file/worktree/unit ids
+      workspace.ts                   # workspace 路径解析与 realpath 授权
       errors.ts                      # 稳定的领域错误
     provider/
       plugin.ts                      # Service Provider
@@ -96,13 +102,20 @@ src/
         worktree-action.ts
     tools/
       plugin.ts                      # Tools Consumer
+      workspace.ts                   # 从 tool exec session 取得 workspace scope
       presentation.ts                # 纯工具卡片呈现函数
       definitions/
-        create.ts
+        new.ts
+        status.ts
+        worktree.ts
+        unit.ts
+        import.ts
         inspect.ts
         execute.ts
         export.ts
-        worktree.ts
+        api.ts
+    skills/
+      plugin.ts                      # bundled lazy Skill Provider
     adapters/
       gateway/
         client.ts
@@ -121,6 +134,14 @@ src/
   workers/
     unit-content/
       entry.ts                       # 一次性无头 Univer 子进程入口
+      license.ts                     # Worker 使用的 Univer license
+      runtime/                       # 本地 snapshot/reference adapters
+  gateway-app/
+    gateway-entry.ts                 # Gateway 子进程入口
+    transport/http.ts                # 文件、worktree 与 Unit HTTP 控制面
+    collab-service.ts                # Gateway 协作领域实现
+    contract/                        # Gateway wire types
+    univerfile-sqlite/               # `.univer` 持久化
   client/
     index.tsx                        # dsh.client 入口
     api/
@@ -149,24 +170,29 @@ src/
       state.ts
       actions.ts
 lib/
-  index.js                           # 生成的 Host 入口
-  client.js                          # 生成的 ModuleLoader Client bundle
-  types/                             # 生成的类型声明
+  index.js                           # gitignored 的 Host 生成入口
+  client.js                          # gitignored 的 ModuleLoader Client bundle
+  types/                             # gitignored 的类型声明
 vendor/
   collaboration/
-    upstream/                        # Gateway 与 Viewer 上游源码快照
-    artifacts/                       # 发布使用的 Gateway 与 Viewer
+    artifacts/viewer/                # 版本化的预构建 Viewer
+    artifacts/gateway.cjs            # 从 gateway-app 生成，gitignored
   unit-content/
-    upstream/                        # 尚未发包的 Univer CLI 应用辅助源码快照
-    artifacts/                       # Worker、公式引擎与 Office 转换器
+    artifacts/unit-content-worker.mjs # 从 workers/unit-content 生成，gitignored
 test/
   host-smoke.mjs
   client-smoke.mjs
   integration-smoke.mjs
+  skills-smoke.mjs
 scripts/
   build.mjs
-  sync-collaboration.mjs
-  sync-unit-content.mjs
+skills/
+  univer/SKILL.md                    # 核心工作流与安全规则
+  univer-sheet/SKILL.md
+  univer-doc/SKILL.md
+  univer-slide/SKILL.md
+  univer-base/SKILL.md
+  univer-board/SKILL.md
 ```
 
 当前仍采用单包发布。只有当某一层具备独立版本、独立消费方或明显不同的发布节奏时才拆 npm 包；目录分层本身不是拆包理由。
@@ -180,7 +206,8 @@ client components -> client hooks -> client api -> shared/wire
 webServer consumer -> service <----- tools consumer
                          ^
                          |
-                  provider -> adapters -> processes / workers / vendor
+                  provider -> adapters -> processes / workers / gateway-app
+bundled skill provider -> DSH skill registry
 ```
 
 具体约束：
@@ -190,18 +217,20 @@ webServer consumer -> service <----- tools consumer
 3. `host/processes/gateway` 只管理 Gateway 进程与资源，不包含 worktree、unit、merge 等业务规则。
 4. Client component 不直接 `fetch`；HTTP 访问集中在 `client/api`，轮询和 mutation 状态集中在 hooks。
 5. `shared/wire` 不依赖 Node.js、React、Cordis 或上游 Univer 包，且所有值必须可 JSON 序列化。
-6. vendored 上游目录不放插件专用代码；一次性 Worker 入口属于 `src/workers/unit-content`，只通过固定 revision 的上游模块实现功能。必须修改上游行为时，在 adapter 中包裹，或在同步清单中记录可重放的补丁。
-7. 所有 Cordis 注册通过 effect 生命周期撤销；插件卸载后不得遗留路由、工具、定时器或子进程。
+6. Gateway 与 Worker 的应用源码分别属于 `src/gateway-app` 和 `src/workers/unit-content`。它们通过精确版本 SDK package 构建，不从外部 checkout 同步源码；生成 executable 不入库。
+7. Skill Provider 只负责发现与加载包内 Markdown，不调用 Service，也不复制工具 schema。
+8. 所有 Cordis 注册通过 effect 生命周期撤销；插件卸载后不得遗留路由、工具、Skill provider、定时器或子进程。
 
 ## 6. Service Definition
 
 `UniverService` 是 Host 内部唯一稳定的领域入口。Service Definition 只描述调用方依赖的行为，不暴露 HTTP、Gateway endpoint、worker 协议或子进程对象。
 
-服务能力分为三组：
+服务能力分为四组：
 
-- Gateway：查询状态并确保插件持有的 Gateway 可用；
-- Unit Content：创建文件和首个 Unit，以及检查、执行和导出 Unit 内容；
-- Collaboration：读取文件/worktree 状态、生成 Viewer 目标、执行 worktree 生命周期操作。
+- File 与状态：创建空 `.univer` 容器，读取 trunk、worktree 与 Unit 状态；
+- Collaboration：创建 worktree，执行 ready、reopen、merge 与 discard 生命周期操作；
+- Unit Content：在 draft worktree 中创建、移除或导入 Unit，以及检查、执行和导出 Unit 内容；
+- API Reference：查找 API 候选并读取指定 Facade/方法的完整参考。
 
 所有文件操作都接收显式 workspace scope。Provider 必须将文件解析为绝对路径，并拒绝 scope 外路径。文件 ID、worktree ID 和 unit ID 在服务层使用 branded 类型，不能以无语义的裸字符串跨层传递。
 
@@ -214,12 +243,12 @@ Provider 按规范化文件路径维护缓存；同一个插件实例只持有�
 Gateway Supervisor 只负责：
 
 - 选择并验证监听端口；
-- 启动 vendored Gateway；
+- 启动随包发布、由 `src/gateway-app` 构建的 Gateway；
 - 等待健康检查成功；
 - 提供 Gateway origin 与 Viewer origin；
 - 在所属 Cordis fiber 结束时终止插件启动的进程。
 
-Unit 的检查、执行和导出由 Unit Content Adapter 启动一次性 Unit Content Worker。Worker 连接 Gateway Supervisor 提供的同一个 Gateway，操作完成或取消后退出，不拥有独立持久状态。写操作只能针对显式 draft worktree 与 unit；Gateway 是提交结果和 revision 的唯一依据。
+Unit 的导入、检查、执行和导出由 Unit Content Adapter 启动一次性 Unit Content Worker。Worker 连接 Gateway Supervisor 提供的同一个 Gateway，操作完成或取消后退出，不拥有独立持久状态。Gateway 的 worktree 控制面直接提供 Unit 创建与移除端点，并通过 collaboration service 与 lifecycle event 完成操作。写操作只能针对显式 draft worktree；Gateway 是提交结果和 revision 的唯一依据。
 
 它不得复用或终止外部启动的 Gateway。已占用的候选端口必须跳过；健康检查需要验证 Viewer 身份，不能把任意返回 HTTP 200 的本地服务误认为 Gateway。
 
@@ -240,15 +269,21 @@ worktree 修改审阅操作必须绑定当前 DSH 会话及其 workspace scope�
 
 Tools Consumer 注册面向模型的领域工具，而不是一个透传 CLI 的通用工具：
 
-- `univer_create`
+- `univer_new`
+- `univer_status`
+- `univer_worktree`
+- `univer_unit`
+- `univer_import`
 - `univer_inspect`
 - `univer_execute`
 - `univer_export`
-- `univer_worktree`
+- `univer_api`
 
 每个工具有独立的参数 schema、结果 schema、超时/取消处理和纯 presentation。工具结果必须包含恢复 Client 预览目标所需的结构化文件、worktree 与 unit 标识，并进入 DSH 会话日志。Client 优先从 `tool/call` 与 `tool/result` 事件恢复目标，不依赖 bash 文本解析。
 
-`ready`、`reopen`、`discard` 和 `merge` 是用户审阅决策，不提供给模型工具。`univer_worktree` 只覆盖 agent 工作所需且不会代替用户批准的操作，例如创建、查询或更新工作分支。
+`univer_status` 是发现文件状态与显式 Unit ID 的入口。所有内容工具要求显式 Unit ID，所有文件和输出路径都绑定当前 tool exec session 的 workspace，并在 Provider 边界再次验证。`ready` 提交修改等待审阅；同一任务需要继续修改时用 `reopen`。`merge` 与 `discard` 只有在用户明确要求时才可调用，并通过 `tools/pre-execute` 返回审批请求，不能由模型自行决定。
+
+包内 `univer` Skill 描述完整编排顺序，sheet、doc、slide、base 与 board Skill 只在对应 Unit 工作时按需加载。Skill 不提供截图能力，也不把可变 API 签名固化在 Markdown 中；不确定的 API 必须通过 `univer_api` 查询。
 
 Client 只解析结构化 `univer_*` 工具事件，不从 bash 命令或自由文本猜测文件与 worktree。
 
@@ -274,26 +309,20 @@ Client 必须满足：
 
 当前实现满足以下约束：
 
-1. `univer_create` 通过 Gateway 创建 `.univer` 容器和首个显式类型的 Unit；
-2. `univer_execute` 只写入显式 draft worktree，并由 Gateway revision 确认提交；
+1. `univer_new` 只创建空 `.univer` 容器，Unit 由 `univer_unit` 或 `univer_import` 显式加入 draft worktree；
+2. `univer_execute` 只写入显式 draft worktree 与 Unit，并由 Gateway revision 确认提交；
 3. `univer_inspect` 与 `univer_export` 可读取 trunk 或显式 worktree；
-4. Client 只从结构化工具事件恢复预览目标；
-5. 全新环境仅安装本插件即可完成创建、修改、检查、导出、预览和 worktree 修改审阅。
+4. `univer_api` 使用包依赖的精确版本 API Reference，不调用外部 CLI；
+5. Client 只从结构化工具事件恢复预览目标；
+6. 全新环境仅安装本插件即可完成创建、导入、修改、检查、导出、预览和 worktree 修改审阅。
 
-## 12. 构建、发布与 vendoring
+## 12. 构建与发布
 
-`src` 是插件自有手写源码，`vendor/*/upstream` 只保存尚未发包且必须复制的固定 revision 上游源码，`lib` 是构建生成物并随 npm 包发布。`univer-cli-sdk` 的公开 package 通过内部 npm registry 以精确版本安装，不复制进 `vendor`；生成 Unit Content Worker 时将这些依赖打入 artifact。Host 构建为 Node ESM，Client 构建为 DSH ModuleLoader 可加载的浏览器 bundle。删除原型的手工 bundle 拼接脚本，构建必须从 Client 源码确定性地产生完整 bundle。
+`src` 是插件自有手写源码。`pnpm run build` 分别生成 Host/Client bundle、Unit Content Worker 和 Gateway；`lib`、Worker executable 与 Gateway executable 都被 gitignore，并在打包前重新生成。Host 构建为 Node ESM，Client 构建为 DSH ModuleLoader 可加载的浏览器 bundle，Gateway 构建为 Node CJS 子进程，Worker 构建为 Node ESM 子进程。
 
-发布包包含运行所需的 Gateway、Viewer、Unit Content Worker、Office 转换器、平台依赖与 Univer license。`vendor/collaboration/SOURCE.json` 和 `vendor/unit-content/SOURCE.json` 固定复制源码的上游 revision，并记录用于生成 artifact 的 SDK package 版本；同步脚本负责复制必要源码、生成 artifacts、许可证和依赖，不允许人工修改 artifacts 后遗漏来源记录。
+发布包包含运行所需的 Gateway、Viewer、Unit Content Worker、Office 转换器、平台依赖、Univer license 与 bundled Skills。Gateway、Worker 和 Host 直接使用 manifest 中精确版本的 Univer SDK/API Reference packages；JavaScript SDK 被 bundle，平台原生 package 由包管理器为目标机器安装。Viewer bundle 是唯一版本化的预构建运行资产。
 
-原生公式引擎、Office 转换器与 SQLite 依赖使 artifacts 具有平台属性。一个发布产物只能声明并携带同一目标平台的原生依赖，`SOURCE.json` 记录目标平台；正式发包流程建立后，应为 macOS arm64、Linux x64/arm64 和 Windows x64 分别构建并验证，不能把当前平台产物描述为跨平台包。
-
-在协作 packages 尚无可依赖发包流程时，可以复制其实现进入 vendor 或明确归属的 adapter，但必须：
-
-- 保留原许可证与 notice；
-- 记录精确来源 revision；
-- 将上游源码与本插件代码分开；
-- 预留替换为正式依赖的单一 adapter 接缝。
+原生公式引擎、Office 转换器与 SQLite 依赖仍具有平台属性。release workflow 必须在目标平台安装 lockfile 所指定的依赖后构建和测试，不能把一个平台的 `node_modules` 复制为通用发布物。
 
 ## 13. 验证策略
 
@@ -303,6 +332,7 @@ Client 必须满足：
 - `provider`：路径 scope、缓存失效、Gateway 映射、worktree 状态与错误；
 - `webServer`：method、JSON、字段、会话授权和错误响应；
 - `tools`：schema、取消、结构化结果和 presentation；
+- `skills`：发现顺序、按需加载、frontmatter 剥离和发布包收录；
 - `client`：事件恢复、轮询生命周期、浮窗交互、unit 切换和审阅 mutation；
 - `integration`：无全局 CLI 的全新环境中，仅安装插件完成端到端功能。
 
@@ -315,9 +345,9 @@ Client 必须满足：
 - 不使用 `capability` 作为目录名；DSH 架构中的 capability seam 由这里的 Service Definition、Provider 和 Consumer 共同实现；
 - 不使用 `daemon` 作为本插件领域名称；
 - 不让用户长期同时安装插件和 CLI；
-- 不把 Gateway 和 Viewer 的完整实现重新手写进 Host；
+- 不把 Gateway 业务实现写进 Host Service/Provider；Gateway 保持独立 application 与进程；
 - 不在当前阶段仅为目录整齐拆成多个 npm 包；
-- 不让模型替用户执行 merge、discard 等审阅决策。
+- 不让模型自行决定 merge 或 discard；显式用户请求仍必须经过 DSH 工具审批。
 
 ## 15. 变更规则
 
@@ -327,5 +357,6 @@ Client 必须满足：
 - Host、Client、Gateway 与 Unit Content Worker 的信任边界；
 - 是否依赖外部 CLI 或外部 Gateway；
 - worktree 用户审阅权归属；
-- vendored 源码与许可证策略；
+- 工具能力与 bundled Skills 的对应关系；
+- 源码构建、预构建 Viewer 与许可证策略；
 - 单包与多包的发布决策。

@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { extname, isAbsolute } from "node:path";
 import { prepareContentExecutionProgram } from "@univer-cli/content-execution";
 import {
@@ -50,7 +49,16 @@ interface ExportRequest extends BaseRequest {
   readonly outputPath: string;
 }
 
-type WorkerRequest = InspectRequest | ExecuteRequest | ExportRequest;
+interface ImportRequest {
+  readonly operation: "import";
+  readonly sourcePath: string;
+  readonly unitType:
+    | UniverInstanceType.UNIVER_SHEET
+    | UniverInstanceType.UNIVER_DOC
+    | UniverInstanceType.UNIVER_SLIDE;
+}
+
+type WorkerRequest = InspectRequest | ExecuteRequest | ExportRequest | ImportRequest;
 
 interface WorkerEnvelope {
   readonly ok: boolean;
@@ -73,6 +81,13 @@ if (!envelope.ok) process.exitCode = 1;
 
 async function main(): Promise<JsonValue> {
   const request = parseRequest(JSON.parse(await readStdin()) as unknown);
+  if (request.operation === "import") {
+    const imported = await createUnitExchange().importFile({
+      sourcePath: request.sourcePath,
+      unitType: request.unitType,
+    });
+    return imported.data as unknown as JsonValue;
+  }
   const urls = gatewayUrls(request);
   const snapshotServerService = new LocalSnapshotServerAdapter(urls.snapshotServerUrl);
   const createUniver = async (context: UniverFactoryContext) => {
@@ -324,6 +339,12 @@ function parseRequest(value: unknown): WorkerRequest {
     throw codedError("UNIT_CONTENT_WORKER_REQUEST_INVALID", "Unit content worker request must be an object");
   }
   const request = value;
+  if (request.operation === "import") {
+    const sourcePath = requiredString(request.sourcePath, "sourcePath");
+    if (!isAbsolute(sourcePath)) invalidRequest("sourcePath must be absolute");
+    const unitType = requiredImportUnitType(request.unitType);
+    return { operation: "import", sourcePath, unitType };
+  }
   const base = {
     gatewayOrigin: requiredHttpOrigin(request.gatewayOrigin),
     commitTimeoutMs: requiredPositiveInteger(request.commitTimeoutMs, "commitTimeoutMs"),
@@ -350,6 +371,17 @@ function parseRequest(value: unknown): WorkerRequest {
     return { ...base, operation: "export", outputPath };
   }
   throw codedError("UNIT_CONTENT_WORKER_REQUEST_INVALID", "Unknown Unit content worker operation");
+}
+
+function requiredImportUnitType(value: unknown): ImportRequest["unitType"] {
+  if (
+    value !== UniverInstanceType.UNIVER_SHEET &&
+    value !== UniverInstanceType.UNIVER_DOC &&
+    value !== UniverInstanceType.UNIVER_SLIDE
+  ) {
+    invalidRequest("import unitType must be Sheet, Doc, or Slide");
+  }
+  return value;
 }
 
 function requiredInspectionQuery(value: unknown): ContentInspectionQuery {

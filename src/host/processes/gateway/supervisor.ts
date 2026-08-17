@@ -23,7 +23,7 @@ export class GatewaySupervisor {
     return { phase: 'stopped', gateway: null, owned: false }
   }
 
-  /** Reuse this supervisor's healthy Gateway or start the vendored one once for concurrent callers. */
+  /** Reuse this supervisor's healthy Gateway or start the bundled one once for concurrent callers. */
   async ensure(): Promise<EnsureGatewayResult> {
     if (this.ownedGateway !== null && await gatewayIsHealthy(this.ownedGateway, this.config.gatewayRequestTimeoutMs)) {
       return { ok: true, gateway: this.ownedGateway, reused: true }

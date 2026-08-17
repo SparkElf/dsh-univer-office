@@ -7,7 +7,7 @@ export const GATEWAY_ENTRY = fileURLToPath(new URL('../vendor/collaboration/arti
 /** Vendored Viewer assets served by the Gateway. */
 export const VIEWER_ROOT = fileURLToPath(new URL('../vendor/collaboration/artifacts/viewer/', import.meta.url))
 
-/** Bundled one-shot worker used for content inspection, execution, and export. */
+/** Bundled one-shot worker used for content import, inspection, execution, and export. */
 export const UNIT_CONTENT_WORKER_ENTRY = fileURLToPath(new URL('../vendor/unit-content/artifacts/unit-content-worker.mjs', import.meta.url))
 
 // The worker and gateway resolve their native dependencies (@univerjs-pro/uexcli,

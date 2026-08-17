@@ -5,7 +5,7 @@ import { GatewayClient } from '../adapters/gateway/client.ts'
 import { GatewayFileApi, fileKeyOf } from '../adapters/gateway/file-api.ts'
 import { mapUnits, type GatewayUnit } from '../adapters/gateway/mapping.ts'
 import { GatewayWorktreeApi } from '../adapters/gateway/worktree-api.ts'
-import type { ExportUnitContentRequest, InspectUnitContentRequest, UniverOperationResult } from '../service/types.ts'
+import type { ExportUnitContentRequest, InspectUnitContentRequest, JsonValue, UniverOperationResult, UniverUnitKind } from '../service/types.ts'
 import { UniverError } from '../service/errors.ts'
 import { univerFilePath } from '../service/identifiers.ts'
 
@@ -72,6 +72,12 @@ export class UnitContentOperations {
     return { ok: true, operation: 'export', file: request.file, result }
   }
 
+  /** Import one Office file into a JSON Unit snapshot. */
+  import(sourcePath: string, signal?: AbortSignal): Promise<{ readonly kind: UniverUnitKind; readonly snapshot: JsonValue }> {
+    const kind = importKind(sourcePath)
+    return this.worker.run({ operation: 'import', sourcePath, unitType: unitType(kind) }, signal).then((snapshot) => ({ kind, snapshot }))
+  }
+
   private async resolveTarget(
     gatewayOrigin: string,
     filePath: string,
@@ -93,6 +99,22 @@ export class UnitContentOperations {
       ...(worktreeId === undefined ? {} : { worktreeId }),
     }
   }
+}
+
+function importKind(sourcePath: string): UniverUnitKind {
+  const extension = sourcePath.slice(sourcePath.lastIndexOf('.')).toLowerCase()
+  if (extension === '.xlsx' || extension === '.csv' || extension === '.tsv') return 'sheet'
+  if (extension === '.docx') return 'doc'
+  if (extension === '.pptx') return 'slide'
+  throw new UniverError('Import source must end in .xlsx, .csv, .tsv, .docx, or .pptx.', 'IMPORT_FORMAT_UNSUPPORTED')
+}
+
+function unitType(kind: UniverUnitKind): 1 | 2 | 3 | 5 | 6 {
+  if (kind === 'doc') return 1
+  if (kind === 'sheet') return 2
+  if (kind === 'slide') return 3
+  if (kind === 'base') return 5
+  return 6
 }
 
 function selectUnit(units: readonly GatewayUnit[], requested: string | undefined): GatewayUnit {

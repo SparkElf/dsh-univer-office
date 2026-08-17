@@ -11,7 +11,7 @@ export interface UnitContentWorkerTarget {
   readonly worktreeId?: string
 }
 
-/** Inspection query understood by the vendored SDK inspector. */
+/** Inspection query understood by the bundled SDK inspector. */
 export type UnitContentInspectionQuery =
   | { readonly kind: 'workbook' }
   | { readonly kind: 'presentation' }
@@ -26,6 +26,7 @@ export type UnitContentWorkerRequest =
   | (UnitContentWorkerTarget & { readonly operation: 'inspect'; readonly query: UnitContentInspectionQuery })
   | (UnitContentWorkerTarget & { readonly operation: 'execute'; readonly code: string; readonly worktreeId: string })
   | (UnitContentWorkerTarget & { readonly operation: 'export'; readonly outputPath: string })
+  | { readonly operation: 'import'; readonly sourcePath: string; readonly unitType: number }
 
 /** Process response envelope emitted once on stdout. */
 export type UnitContentWorkerEnvelope =

@@ -18,9 +18,13 @@ export abstract class UniverService extends Service implements UniverServiceMeth
   abstract unitContentStatus(): ReturnType<UniverServiceMethods['unitContentStatus']>
   abstract fileState(...args: Parameters<UniverServiceMethods['fileState']>): ReturnType<UniverServiceMethods['fileState']>
   abstract worktreeAction(...args: Parameters<UniverServiceMethods['worktreeAction']>): ReturnType<UniverServiceMethods['worktreeAction']>
-  abstract createFile(...args: Parameters<UniverServiceMethods['createFile']>): ReturnType<UniverServiceMethods['createFile']>
+  abstract newFile(...args: Parameters<UniverServiceMethods['newFile']>): ReturnType<UniverServiceMethods['newFile']>
+  abstract status(...args: Parameters<UniverServiceMethods['status']>): ReturnType<UniverServiceMethods['status']>
+  abstract worktree(...args: Parameters<UniverServiceMethods['worktree']>): ReturnType<UniverServiceMethods['worktree']>
+  abstract unit(...args: Parameters<UniverServiceMethods['unit']>): ReturnType<UniverServiceMethods['unit']>
   abstract inspectUnitContent(...args: Parameters<UniverServiceMethods['inspectUnitContent']>): ReturnType<UniverServiceMethods['inspectUnitContent']>
   abstract executeUnitContent(...args: Parameters<UniverServiceMethods['executeUnitContent']>): ReturnType<UniverServiceMethods['executeUnitContent']>
+  abstract importUnitContent(...args: Parameters<UniverServiceMethods['importUnitContent']>): ReturnType<UniverServiceMethods['importUnitContent']>
   abstract exportUnitContent(...args: Parameters<UniverServiceMethods['exportUnitContent']>): ReturnType<UniverServiceMethods['exportUnitContent']>
-  abstract createWorktree(...args: Parameters<UniverServiceMethods['createWorktree']>): ReturnType<UniverServiceMethods['createWorktree']>
+  abstract apiReference(...args: Parameters<UniverServiceMethods['apiReference']>): ReturnType<UniverServiceMethods['apiReference']>
 }

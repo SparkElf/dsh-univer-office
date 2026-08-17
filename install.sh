@@ -9,17 +9,26 @@ PATCH="$HOME/.dsh/profiles/web/cordis.patch.yml"
 
 echo "📦 Installing DSH × Univer plugin..."
 
-# 1. Assemble the plugin package from source (host/client code + bundled Univer artifacts).
+# 1. Build and assemble the plugin package from source.
 #    dist/ is a generated directory and is not shipped in git — never rely on it.
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "   ❌ pnpm is required to build this source checkout."
+  exit 1
+fi
+(cd "$DIR" && pnpm run build)
 mkdir -p "$DEST/lib"
 rm -rf "$DEST/lib"
 cp -R "$DIR/lib/." "$DEST/lib/"
+rm -rf "$DEST/skills"
+cp -R "$DIR/skills" "$DEST/skills"
 mkdir -p "$DEST/vendor/collaboration"
 cp -R "$DIR/vendor/collaboration/artifacts" "$DEST/vendor/collaboration/"
 cp "$DIR/vendor/collaboration/README.md" "$DIR/vendor/collaboration/SOURCE.json" "$DEST/vendor/collaboration/"
 mkdir -p "$DEST/vendor/unit-content"
 cp -R "$DIR/vendor/unit-content/artifacts" "$DEST/vendor/unit-content/"
-cp "$DIR/vendor/unit-content/README.md" "$DIR/vendor/unit-content/SOURCE.json" "$DEST/vendor/unit-content/"
+for metadata in README.md SOURCE.json; do
+  [ -f "$DIR/vendor/unit-content/$metadata" ] && cp "$DIR/vendor/unit-content/$metadata" "$DEST/vendor/unit-content/"
+done
 if ! command -v node >/dev/null 2>&1 || [ ! -d "$DIR/node_modules/libsql" ]; then
   echo "   ❌ Source installer needs this checkout's dependencies. Run pnpm install first,"
   echo "      or use: dsh plugin --profile web add $DIR"

@@ -5,6 +5,7 @@ import {
   GATEWAY_CAPABILITIES,
   GATEWAY_DESCRIPTOR_CONTENT_TYPE,
   GATEWAY_PROTOCOL_VERSION,
+  isSupportedUnitType,
   isGatewayDescriptorContentType,
   type ErrorEnvelope,
   type OptimizeUniverfileRequest,
@@ -292,7 +293,8 @@ async function handleWorktrees(
   }
 
   const worktreeId = worktreeRest[0] ?? "";
-  if (collab.worktrees.getWorktree(worktreeId) === undefined) {
+  const worktree = collab.worktrees.getWorktree(worktreeId);
+  if (worktree === undefined) {
     sendJson(res, 404, { error: { code: 0, message: `worktree ${worktreeId} not found` } });
     return;
   }
@@ -304,6 +306,60 @@ async function handleWorktrees(
       error: { code: 1, message: "" },
       units: collab.worktreeUnits(worktreeId),
     });
+    return;
+  }
+
+  // Create one top-level Unit inside a draft worktree.
+  if (sub.length === 1 && sub[0] === "units" && method === "POST") {
+    try {
+      requireDraftWorktree(worktreeId, worktree.status);
+      const body = requireWorktreeUnitCreateBody(await readJsonBody(req));
+      const created = await collab.createWorktreeUnit(
+        worktreeId,
+        body.type,
+        body.name,
+        undefined,
+        body.snapshot,
+      );
+      const unit = collab.worktreeUnits(worktreeId).find((entry) => entry.unitId === created.unitId);
+      univerfile.events.emit(worktreeId, {
+        type: "unit_added",
+        unitId: created.unitId,
+        unitType: body.type,
+        name: body.name,
+      });
+      sendJson(res, 200, {
+        error: { code: 1, message: "" },
+        unitId: created.unitId,
+        type: body.type,
+        kind: unitKind(body.type),
+        name: body.name,
+        headRev: unit?.headRev ?? 1,
+        worktreeId,
+      });
+    } catch (error) {
+      sendJson(res, 200, { error: toErrorDetail(error), ok: false });
+    }
+    return;
+  }
+
+  // Remove one top-level Unit inside a draft worktree.
+  if (sub.length === 3 && sub[0] === "units" && sub[2] === "remove" && method === "POST") {
+    try {
+      requireDraftWorktree(worktreeId, worktree.status);
+      const unitId = decodeURIComponent(sub[1] ?? "");
+      if (unitId.length === 0) throw new Error("unitId must be a non-empty string");
+      collab.deleteWorktreeUnit(worktreeId, unitId);
+      univerfile.events.emit(worktreeId, { type: "unit_removed", unitId });
+      sendJson(res, 200, {
+        error: { code: 1, message: "" },
+        removed: true,
+        unitId,
+        worktreeId,
+      });
+    } catch (error) {
+      sendJson(res, 200, { error: toErrorDetail(error), ok: false });
+    }
     return;
   }
 
@@ -778,6 +834,45 @@ function sendUniverfileError(res: ServerResponse, error: unknown): void {
 function numType(raw: string | undefined): number {
   const n = Number(raw);
   return Number.isFinite(n) ? n : SHEET_TYPE;
+}
+
+function requireDraftWorktree(worktreeId: string, status: string): void {
+  if (status !== "draft") {
+    throw new Error(`Worktree ${worktreeId} is ${status}; Unit changes require draft`);
+  }
+}
+
+function requireWorktreeUnitCreateBody(body: unknown): {
+  readonly type: UnitType;
+  readonly name: string;
+  readonly snapshot?: object;
+} {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    throw new Error("request body must be an object");
+  }
+  const value = body as Record<string, unknown>;
+  if (typeof value.type !== "number" || !isSupportedUnitType(value.type)) {
+    throw new Error("type must be a supported Univer Unit type");
+  }
+  if (typeof value.name !== "string" || value.name.length === 0) {
+    throw new Error("name must be a non-empty string");
+  }
+  if (value.snapshot !== undefined && (typeof value.snapshot !== "object" || value.snapshot === null || Array.isArray(value.snapshot))) {
+    throw new Error("snapshot must be an object");
+  }
+  return {
+    type: value.type,
+    name: value.name,
+    ...(value.snapshot === undefined ? {} : { snapshot: value.snapshot as object }),
+  };
+}
+
+function unitKind(type: UnitType): "doc" | "sheet" | "slide" | "base" | "board" {
+  if (type === 1) return "doc";
+  if (type === 2) return "sheet";
+  if (type === 3) return "slide";
+  if (type === 5) return "base";
+  return "board";
 }
 
 function asMessage(error: unknown): string {

@@ -1,6 +1,6 @@
 import type { FileState } from './state.ts'
 
-/** Human-only worktree review decisions exposed by the browser UI. */
+/** Worktree lifecycle actions exposed by the browser UI. */
 export type WorktreeReviewAction = 'ready' | 'reopen' | 'discard' | 'merge'
 
 /** Result of one worktree review decision. */

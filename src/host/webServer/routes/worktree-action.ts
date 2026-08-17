@@ -23,9 +23,11 @@ export async function worktreeActionRoute(service: UniverService, sessions: Sess
   if (typeof body.worktreeId !== 'string' || body.worktreeId.length === 0) {
     throw new UniverError('worktreeId is required', 'INVALID_REQUEST')
   }
+  const authorized = await resolveAuthorizedFile(body.file, body.sessionId, sessions)
   return service.worktreeAction({
     action,
-    file: await resolveAuthorizedFile(body.file, body.sessionId, sessions),
+    workspace: authorized.workspace,
+    file: authorized.path,
     worktreeId: worktreeId(body.worktreeId),
   })
 }

@@ -11,12 +11,11 @@
   "files": [
     "lib",
     "docs",
+    "skills",
     "vendor/collaboration/artifacts",
     "vendor/collaboration/README.md",
     "vendor/collaboration/SOURCE.json",
     "vendor/unit-content/artifacts",
-    "vendor/unit-content/README.md",
-    "vendor/unit-content/SOURCE.json",
     "scripts/install.js",
     "scripts/copy-gateway-dependencies.mjs",
     "README.md",
@@ -74,10 +73,12 @@
     "test:integration": "node test/integration-smoke.mjs",
     "test:host": "node test/host-smoke.mjs",
     "test:client": "node test/client-smoke.mjs",
-    "test": "pnpm run build && pnpm run test:host && pnpm run test:integration && pnpm run test:client",
+    "test:skills": "node test/skills-smoke.mjs",
+    "test": "pnpm run build && pnpm run test:host && pnpm run test:integration && pnpm run test:client && pnpm run test:skills",
     "prepublishOnly": "pnpm run build && pnpm run test"
   },
   "dependencies": {
+    "@univer-cli/api-reference": "1.0.0-insiders.20260813-7c9aa50",
     "@univerjs-pro/cli-assets": "0.1.0",
     "@univerjs-pro/engine-formula-rust-binding": "1.0.0-insiders.20260811-001a0e5",
     "@univerjs-pro/uexcli": "0.3.2",
@@ -87,6 +88,7 @@
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-host-webserver": "0.1.0-rc.6",
     "@deepseek-ai/dsh-session": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-skill": "0.1.0-rc.6",
     "@deepseek-ai/dsh-tools": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.1"
   },
@@ -97,6 +99,7 @@
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-host-webserver": "0.1.0-rc.6",
     "@deepseek-ai/dsh-session": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-skill": "0.1.0-rc.6",
     "@deepseek-ai/dsh-tools": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.1",
     "@types/node": "^24.13.3",

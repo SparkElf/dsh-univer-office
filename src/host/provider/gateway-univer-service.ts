@@ -1,16 +1,32 @@
 import type { Context } from '@deepseek-ai/cordis'
+import { createStandardApiReference, type ApiReference } from '@univer-cli/api-reference'
 import type { ResolvedConfig } from '../config.ts'
 import type { WorktreeActionResult } from '../../shared/wire/actions.ts'
 import type { FileState, WorktreeState } from '../../shared/wire/state.ts'
 import type { EnsureGatewayResult, GatewayStatus } from '../../shared/wire/status.ts'
-import { GatewayClient } from '../adapters/gateway/client.ts'
+import { GatewayClient, gatewayErrorMessage } from '../adapters/gateway/client.ts'
 import { GatewayFileApi, fileKeyOf } from '../adapters/gateway/file-api.ts'
 import { GatewayWorktreeApi } from '../adapters/gateway/worktree-api.ts'
-import { mapWorktrees } from '../adapters/gateway/mapping.ts'
-import type { CreateUniverFileRequest, ExecuteUnitContentRequest, ExportUnitContentRequest, FileStateRequest, InspectUnitContentRequest, UniverOperationResult, WorktreeActionRequest } from '../service/types.ts'
-import type { UniverFilePath } from '../service/identifiers.ts'
+import { isRecord, mapUnits, mapWorktrees, unitKind } from '../adapters/gateway/mapping.ts'
+import type {
+  ApiReferenceRequest,
+  ExecuteUnitContentRequest,
+  ExportUnitContentRequest,
+  FileStateRequest,
+  FileStatusRequest,
+  ImportUnitContentRequest,
+  InspectUnitContentRequest,
+  JsonValue,
+  NewUniverFileRequest,
+  UnitOperationRequest,
+  UniverApiResult,
+  UniverOperationResult,
+  WorktreeActionRequest,
+  WorktreeOperationRequest,
+} from '../service/types.ts'
 import { UniverError } from '../service/errors.ts'
 import { UniverService } from '../service/univer-service.ts'
+import { assertAuthorizedPath } from '../service/workspace.ts'
 import { GatewaySupervisor } from '../processes/gateway/supervisor.ts'
 import { UnitContentOperations } from './unit-content-operations.ts'
 import { StateCache } from './state-cache.ts'
@@ -23,6 +39,7 @@ export class GatewayUniverService extends UniverService {
   private readonly worktrees: WorktreeOperations
   private readonly stateCache: StateCache<string, FileState>
   private readonly unitCache: StateCache<string, readonly import('../../shared/wire/state.ts').ChangedUnit[]>
+  private readonly api: ApiReference
 
   constructor(ctx: Context, private readonly config: ResolvedConfig) {
     super(ctx)
@@ -35,6 +52,7 @@ export class GatewayUniverService extends UniverService {
     this.worktrees = new WorktreeOperations(config.gatewayRequestTimeoutMs, config.gatewayMutationTimeoutMs)
     this.stateCache = new StateCache(config.stateCacheTtlMs)
     this.unitCache = new StateCache(config.unitCacheTtlMs)
+    this.api = createStandardApiReference()
     ctx.effect(() => async () => this.dispose(), 'univer: Gateway supervisor')
   }
 
@@ -48,13 +66,15 @@ export class GatewayUniverService extends UniverService {
     return this.gatewaySupervisor.ensure()
   }
 
-  /** Return cached collaboration state for one file. */
-  fileState(request: FileStateRequest): Promise<FileState> {
+  /** Return cached collaboration state for one authorized file. */
+  async fileState(request: FileStateRequest): Promise<FileState> {
+    await assertAuthorizedPath(request.workspace, request.file, true)
     return this.stateCache.get(request.file, () => this.computeFileState(request.file))
   }
 
-  /** Apply a human review decision and return the refreshed state. */
+  /** Apply a browser review decision and return the refreshed state. */
   async worktreeAction(request: WorktreeActionRequest): Promise<WorktreeActionResult> {
+    await assertAuthorizedPath(request.workspace, request.file, true)
     const available = await this.ensureGateway()
     if (!available.ok) return { ok: false, reason: available.reason }
     try {
@@ -64,11 +84,11 @@ export class GatewayUniverService extends UniverService {
         ok: true,
         action: request.action,
         worktreeId: request.worktreeId,
-        state: await this.fileState({ file: request.file }),
+        state: await this.fileState({ workspace: request.workspace, file: request.file }),
       }
     } catch (error) {
       this.invalidate(request.file, request.worktreeId)
-      const state = await this.fileState({ file: request.file }).catch(() => undefined)
+      const state = await this.fileState({ workspace: request.workspace, file: request.file }).catch(() => undefined)
       return {
         ok: false,
         reason: error instanceof Error ? error.message : String(error),
@@ -77,29 +97,150 @@ export class GatewayUniverService extends UniverService {
     }
   }
 
-  createFile(request: CreateUniverFileRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
-    return this.createFileInGateway(request, signal)
+  /** Create one empty Univer container without an implicit Unit. */
+  async newFile(request: NewUniverFileRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
+    await assertAuthorizedPath(request.workspace, request.file, false)
+    signal?.throwIfAborted()
+    const gateway = await this.requireGateway()
+    const result = await new GatewayFileApi(new GatewayClient(gateway, this.config.gatewayMutationTimeoutMs)).create(request.file)
+    requireGatewaySuccess(result, 'Gateway rejected the Univer file creation.')
+    signal?.throwIfAborted()
+    this.stateCache.delete(request.file)
+    return {
+      ok: true,
+      operation: 'new',
+      file: request.file,
+      result: { filePath: request.file, created: true },
+    }
   }
 
+  /** Return trunk and worktree identities needed before model edits. */
+  async status(request: FileStatusRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
+    await assertAuthorizedPath(request.workspace, request.file, true)
+    signal?.throwIfAborted()
+    const gateway = await this.requireGateway()
+    const client = new GatewayClient(gateway, this.config.gatewayRequestTimeoutMs)
+    const fileApi = new GatewayFileApi(client)
+    const worktreeApi = new GatewayWorktreeApi(client)
+    const [trunkValue, worktreeValue] = await Promise.all([
+      fileApi.listUnits(request.file),
+      fileApi.listWorktrees(request.file),
+    ])
+    let trunkUnits = mapUnits(trunkValue)
+    const worktrees = mapWorktrees(worktreeValue)
+    if (request.unitId !== undefined) trunkUnits = trunkUnits.filter((unit) => unit.unitId === request.unitId)
+    const selected = request.worktreeId === undefined
+      ? undefined
+      : worktrees.find((worktree) => worktree.worktreeId === request.worktreeId)
+    if (request.worktreeId !== undefined && selected === undefined) {
+      throw new UniverError(`Worktree ${request.worktreeId} was not found.`, 'WORKTREE_NOT_FOUND')
+    }
+    const selectedUnits = request.worktreeId === undefined
+      ? undefined
+      : mapUnits(await worktreeApi.listUnits(request.file, request.worktreeId))
+        .filter((unit) => request.unitId === undefined || unit.unitId === request.unitId)
+    signal?.throwIfAborted()
+    return {
+      ok: true,
+      operation: 'status',
+      file: request.file,
+      result: {
+        trunk: { units: trunkUnits.map(unitResult) },
+        worktrees: worktrees.map(worktreeResult),
+        ...(selected === undefined || selectedUnits === undefined
+          ? {}
+          : { selectedWorktree: { ...worktreeResult(selected), units: selectedUnits.map(unitResult) } }),
+      },
+    }
+  }
+
+  /** Create or transition one worktree. */
+  async worktree(request: WorktreeOperationRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
+    await assertAuthorizedPath(request.workspace, request.file, true)
+    signal?.throwIfAborted()
+    const gateway = await this.requireGateway()
+    const api = new GatewayWorktreeApi(new GatewayClient(gateway, this.config.gatewayMutationTimeoutMs))
+    const result = request.action === 'create'
+      ? await api.create(request.file, request.name)
+      : await this.transitionWorktree(gateway, request)
+    requireGatewaySuccess(result, `Gateway rejected worktree ${request.action}.`)
+    signal?.throwIfAborted()
+    const id = worktreeResultId(result, request)
+    this.invalidate(request.file, id)
+    return { ok: true, operation: 'worktree', file: request.file, result: { action: request.action, ...asRecord(result) } }
+  }
+
+  /** Create or remove one Unit inside a draft worktree. */
+  async unit(request: UnitOperationRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
+    await assertAuthorizedPath(request.workspace, request.file, true)
+    signal?.throwIfAborted()
+    const gateway = await this.requireGateway()
+    await this.requireWorktreeStatus(gateway, request.file, request.worktreeId, 'draft')
+    const api = new GatewayWorktreeApi(new GatewayClient(gateway, this.config.gatewayMutationTimeoutMs))
+    const result = request.action === 'create'
+      ? await api.createUnit(request.file, request.worktreeId, request.kind, request.name)
+      : await api.removeUnit(request.file, request.worktreeId, request.unitId)
+    requireGatewaySuccess(result, `Gateway rejected Unit ${request.action}.`)
+    signal?.throwIfAborted()
+    this.invalidate(request.file, request.worktreeId)
+    return { ok: true, operation: 'unit', file: request.file, result: { action: request.action, ...asRecord(result) } }
+  }
+
+  /** Inspect one explicit Unit in trunk or a worktree. */
   async inspectUnitContent(request: InspectUnitContentRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
+    await assertAuthorizedPath(request.workspace, request.file, true)
     const gateway = await this.requireGateway()
     return this.unitContent.inspect(gateway, request, signal)
   }
 
+  /** Execute Facade code against one explicit Unit in a draft worktree. */
   async executeUnitContent(request: ExecuteUnitContentRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
+    await assertAuthorizedPath(request.workspace, request.file, true)
     const gateway = await this.requireGateway()
+    await this.requireWorktreeStatus(gateway, request.file, request.worktreeId, 'draft')
     const result = await this.unitContent.execute(gateway, request.file, request.code, request.worktreeId, request.unitId, signal)
     this.invalidate(request.file, request.worktreeId)
     return result
   }
 
+  /** Import one Office file as a new Unit in a draft worktree. */
+  async importUnitContent(request: ImportUnitContentRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
+    await Promise.all([
+      assertAuthorizedPath(request.workspace, request.file, true),
+      assertAuthorizedPath(request.sourceWorkspace, request.source, true),
+    ])
+    const gateway = await this.requireGateway()
+    await this.requireWorktreeStatus(gateway, request.file, request.worktreeId, 'draft')
+    const imported = await this.unitContent.import(request.source, signal)
+    const result = await new GatewayWorktreeApi(new GatewayClient(gateway, this.config.gatewayMutationTimeoutMs))
+      .createUnit(request.file, request.worktreeId, imported.kind, request.name, imported.snapshot)
+    requireGatewaySuccess(result, 'Gateway rejected the imported Unit.')
+    signal?.throwIfAborted()
+    this.invalidate(request.file, request.worktreeId)
+    return {
+      ok: true,
+      operation: 'import',
+      file: request.file,
+      result: { sourcePath: request.source, ...asRecord(result) },
+    }
+  }
+
+  /** Export one explicit Unit from trunk or a worktree. */
   async exportUnitContent(request: ExportUnitContentRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
+    await Promise.all([
+      assertAuthorizedPath(request.workspace, request.file, true),
+      assertAuthorizedPath(request.outputWorkspace, request.output, false),
+    ])
     const gateway = await this.requireGateway()
     return this.unitContent.export(gateway, request, signal)
   }
 
-  createWorktree(file: UniverFilePath, name: string | undefined, signal?: AbortSignal): Promise<UniverOperationResult> {
-    return this.createWorktreeInGateway(file, name, signal)
+  /** Search or show the Facade API reference bundled for this plugin version. */
+  apiReference(request: ApiReferenceRequest): Promise<UniverApiResult> {
+    const result = request.action === 'find'
+      ? this.api.find({ terms: request.queries, ...request.unit === undefined ? {} : { unit: request.unit }, ...request.limit === undefined ? {} : { limit: request.limit } })
+      : this.api.show(request.queries)
+    return Promise.resolve({ ok: true, operation: 'api', result: result as unknown as JsonValue })
   }
 
   /** Stop Gateway ownership and clear transient state. */
@@ -114,7 +255,7 @@ export class GatewayUniverService extends UniverService {
     return 'bundled'
   }
 
-  private async computeFileState(file: UniverFilePath): Promise<FileState> {
+  private async computeFileState(file: string): Promise<FileState> {
     let status = await this.gatewaySupervisor.status()
     if (status.gateway === null && this.config.autoStartGateway) {
       const started = await this.gatewaySupervisor.ensure()
@@ -143,12 +284,8 @@ export class GatewayUniverService extends UniverService {
         name: record.name,
         status: record.status,
         units,
-        ...record.status === 'draft' || record.status === 'ready'
-          ? { openUrl, worktreeUrl }
-          : {},
-        ...record.status === 'ready'
-          ? { mergeUrl }
-          : {},
+        ...record.status === 'draft' || record.status === 'ready' ? { openUrl, worktreeUrl } : {},
+        ...record.status === 'ready' ? { mergeUrl } : {},
       }
     }))
     return {
@@ -161,31 +298,29 @@ export class GatewayUniverService extends UniverService {
     }
   }
 
-  private invalidate(file: UniverFilePath, worktreeId: string): void {
+  private async transitionWorktree(gateway: string, request: Exclude<WorktreeOperationRequest, { action: 'create' }>): Promise<JsonValue> {
+    if (request.action === 'merge') await this.requireWorktreeStatus(gateway, request.file, request.worktreeId, 'ready')
+    return new GatewayWorktreeApi(new GatewayClient(gateway, this.config.gatewayMutationTimeoutMs))
+      .action(request.file, request.worktreeId, request.action)
+  }
+
+  private async requireWorktreeStatus(
+    gateway: string,
+    file: string,
+    worktreeId: string,
+    expected: 'draft' | 'ready',
+  ): Promise<void> {
+    const listing = await new GatewayFileApi(new GatewayClient(gateway, this.config.gatewayRequestTimeoutMs)).listWorktrees(file)
+    const worktree = mapWorktrees(listing).find((entry) => entry.worktreeId === worktreeId)
+    if (worktree === undefined) throw new UniverError(`Worktree ${worktreeId} was not found.`, 'WORKTREE_NOT_FOUND')
+    if (worktree.status !== expected) {
+      throw new UniverError(`Worktree ${worktreeId} is ${worktree.status}; expected ${expected}.`, 'WORKTREE_STATUS_INVALID')
+    }
+  }
+
+  private invalidate(file: string, worktreeId: string): void {
     this.stateCache.delete(file)
     this.unitCache.delete(`${file}\u0000${worktreeId}`)
-  }
-
-  private async createFileInGateway(request: CreateUniverFileRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
-    signal?.throwIfAborted()
-    const available = await this.ensureGateway()
-    if (!available.ok) throw new UniverError(available.reason, 'GATEWAY_UNAVAILABLE')
-    const api = new GatewayFileApi(new GatewayClient(available.gateway, this.config.gatewayMutationTimeoutMs))
-    await api.create(request.file)
-    const result = await api.createUnit(request.file, request.kind, request.name)
-    signal?.throwIfAborted()
-    this.stateCache.delete(request.file)
-    return { ok: true, operation: 'create', file: request.file, result }
-  }
-
-  private async createWorktreeInGateway(file: UniverFilePath, name: string | undefined, signal?: AbortSignal): Promise<UniverOperationResult> {
-    signal?.throwIfAborted()
-    const available = await this.ensureGateway()
-    if (!available.ok) throw new UniverError(available.reason, 'GATEWAY_UNAVAILABLE')
-    const result = await new GatewayWorktreeApi(new GatewayClient(available.gateway, this.config.gatewayMutationTimeoutMs)).create(file, name)
-    signal?.throwIfAborted()
-    this.stateCache.delete(file)
-    return { ok: true, operation: 'worktree', file, result }
   }
 
   private async requireGateway(): Promise<string> {
@@ -193,4 +328,46 @@ export class GatewayUniverService extends UniverService {
     if (!available.ok) throw new UniverError(available.reason, 'GATEWAY_UNAVAILABLE')
     return available.gateway
   }
+}
+
+function unitResult(unit: ReturnType<typeof mapUnits>[number]): { [key: string]: JsonValue } {
+  return {
+    unitId: unit.unitId,
+    name: unit.name,
+    kind: unitKind(unit.type),
+    type: unit.type,
+    headRevision: unit.headRev,
+  }
+}
+
+function worktreeResult(worktree: ReturnType<typeof mapWorktrees>[number]): { [key: string]: JsonValue } {
+  return {
+    worktreeId: worktree.worktreeId,
+    name: worktree.name,
+    status: worktree.status,
+    baseline: worktree.baseline,
+    ...worktree.createdAt === undefined ? {} : { createdAt: worktree.createdAt },
+    ...worktree.mergedAt === undefined ? {} : { mergedAt: worktree.mergedAt },
+  }
+}
+
+function requireGatewaySuccess(value: JsonValue, fallback: string): void {
+  if (isRecord(value) && isRecord(value.error) && value.error.code === 0) {
+    throw new UniverError(gatewayErrorMessage(value) ?? fallback, 'GATEWAY_REQUEST_REJECTED')
+  }
+  if (isRecord(value) && value.ok === false) {
+    throw new UniverError(gatewayErrorMessage(value) ?? fallback, 'GATEWAY_REQUEST_REJECTED')
+  }
+}
+
+function asRecord(value: JsonValue): { [key: string]: JsonValue } {
+  if (!isRecord(value)) throw new UniverError('Gateway result must be an object.', 'GATEWAY_INVALID_RESPONSE')
+  return value
+}
+
+function worktreeResultId(value: JsonValue, request: WorktreeOperationRequest): string {
+  const record = asRecord(value)
+  if (typeof record.worktreeId === 'string') return record.worktreeId
+  if (request.action !== 'create') return request.worktreeId
+  throw new UniverError('Gateway worktree result is missing worktreeId.', 'GATEWAY_INVALID_RESPONSE')
 }

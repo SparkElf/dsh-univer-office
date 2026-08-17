@@ -6,6 +6,9 @@ export interface GatewayWorktree {
   readonly worktreeId: string
   readonly name: string
   readonly status: WorktreeStatus
+  readonly baseline: Readonly<Record<string, number>>
+  readonly createdAt?: string
+  readonly mergedAt?: string
 }
 
 /** Unit record returned by trunk and worktree listings. */
@@ -13,6 +16,7 @@ export interface GatewayUnit {
   readonly unitId: string
   readonly name: string
   readonly type: number
+  readonly headRev: number
 }
 
 /** Validate and map a Gateway worktree listing. */
@@ -20,7 +24,14 @@ export function mapWorktrees(value: JsonValue): GatewayWorktree[] {
   if (!isRecord(value) || !Array.isArray(value.worktrees)) return []
   return value.worktrees.flatMap((entry) => {
     if (!isRecord(entry) || typeof entry.worktreeId !== 'string' || !isWorktreeStatus(entry.status)) return []
-    return [{ worktreeId: entry.worktreeId, name: typeof entry.name === 'string' ? entry.name : '', status: entry.status }]
+    return [{
+      worktreeId: entry.worktreeId,
+      name: typeof entry.name === 'string' ? entry.name : '',
+      status: entry.status,
+      baseline: numberRecord(entry.baseline),
+      ...typeof entry.createdAt === 'string' ? { createdAt: entry.createdAt } : {},
+      ...typeof entry.mergedAt === 'string' ? { mergedAt: entry.mergedAt } : {},
+    }]
   })
 }
 
@@ -33,8 +44,16 @@ export function mapUnits(value: JsonValue): GatewayUnit[] {
       unitId: entry.unitId,
       name: typeof entry.name === 'string' ? entry.name : '',
       type: entry.type,
+      headRev: typeof entry.headRev === 'number' && Number.isSafeInteger(entry.headRev) ? entry.headRev : 0,
     }]
   })
+}
+
+function numberRecord(value: JsonValue | undefined): Readonly<Record<string, number>> {
+  if (!isRecord(value)) return {}
+  return Object.fromEntries(Object.entries(value).flatMap(([key, entry]) => (
+    typeof entry === 'number' && Number.isSafeInteger(entry) ? [[key, entry]] : []
+  )))
 }
 
 /** Validate and map changed units from a Gateway merge preview. */
@@ -70,7 +89,8 @@ function changeKind(value: JsonValue | undefined): UnitChangeKind | null {
   return null
 }
 
-function unitKind(value: JsonValue | undefined): string | null {
+/** Map a Gateway numeric Unit type to its public kind. */
+export function unitKind(value: JsonValue | undefined): string | null {
   if (value === 1) return 'doc'
   if (value === 2) return 'sheet'
   if (value === 3) return 'slide'

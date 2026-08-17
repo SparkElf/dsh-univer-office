@@ -1,4 +1,4 @@
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -13,8 +13,12 @@ const entry = packageRoot === undefined
 	: pathToFileURL(join(packageRoot, "lib", "index.js")).href;
 const { GatewayUniverService, resolveConfig } = await import(entry);
 const scratch = await mkdtemp(join(tmpdir(), "dsh-univer-integration-smoke-"));
-const file = join(scratch, "smoke.univer");
-const fileKey = Buffer.from(file, "utf8").toString("base64url");
+const workspace = await realpath(scratch);
+const file = join(workspace, "smoke.univer");
+const source = join(workspace, "import.csv");
+const exported = join(workspace, "smoke.xlsx");
+await writeFile(source, "name,value\nalpha,1\nbeta,2\n");
+
 const foreign = createHttpServer((_request, response) => response.end("not a Univer Gateway"));
 await new Promise((resolve, reject) => {
 	foreign.once("error", reject);
@@ -24,8 +28,8 @@ const foreignAddress = foreign.address();
 if (foreignAddress === null || typeof foreignAddress === "string") throw new Error("foreign server did not receive a TCP port");
 const port = await reservePort();
 const origin = `http://127.0.0.1:${port}`;
-const exported = join(scratch, "smoke.xlsx");
 const service = new GatewayUniverService(new Context(), resolveConfig({ gatewayPorts: [foreignAddress.port, port], tools: false }));
+const scoped = { workspace, file };
 
 try {
 	const started = await service.ensureGateway();
@@ -41,20 +45,33 @@ try {
 		throw new Error("bundled Viewer index was not served");
 	}
 
-	const created = await service.createFile({ file, kind: "sheet", name: "Smoke" });
-	if (!created.ok || created.operation !== "create") throw new Error(`create content failed: ${JSON.stringify(created)}`);
-	if (typeof created.result?.unitID !== "string") throw new Error(`create Unit failed: ${JSON.stringify(created)}`);
-	const unitId = created.result.unitID;
+	const created = await service.newFile(scoped);
+	if (!created.ok || created.operation !== "new" || created.result?.created !== true) {
+		throw new Error(`new Univer file failed: ${JSON.stringify(created)}`);
+	}
+	const empty = await service.status(scoped);
+	if (empty.result?.trunk?.units?.length !== 0) throw new Error(`new file must be empty: ${JSON.stringify(empty)}`);
 
-	const worktreeOperation = await service.createWorktree(file, "integration smoke");
+	const worktreeOperation = await service.worktree({ ...scoped, action: "create", name: "integration smoke" });
 	const worktree = worktreeOperation.result;
 	if (worktree === null || typeof worktree !== "object" || Array.isArray(worktree)
 		|| typeof worktree.worktreeId !== "string" || worktree.status !== "draft") {
 		throw new Error(`create worktree failed: ${JSON.stringify(worktree)}`);
 	}
+	const worktreeId = worktree.worktreeId;
+
+	const createdUnit = await service.unit({ ...scoped, action: "create", worktreeId, kind: "sheet", name: "Smoke" });
+	const unitId = createdUnit.result?.unitId;
+	if (typeof unitId !== "string") throw new Error(`create Unit failed: ${JSON.stringify(createdUnit)}`);
+
+	const temporary = await service.unit({ ...scoped, action: "create", worktreeId, kind: "doc", name: "Temporary" });
+	if (typeof temporary.result?.unitId !== "string") throw new Error(`temporary Unit failed: ${JSON.stringify(temporary)}`);
+	const removed = await service.unit({ ...scoped, action: "remove", worktreeId, unitId: temporary.result.unitId });
+	if (removed.result?.removed !== true) throw new Error(`remove Unit failed: ${JSON.stringify(removed)}`);
+
 	const executed = await service.executeUnitContent({
-		file,
-		worktreeId: worktree.worktreeId,
+		...scoped,
+		worktreeId,
 		unitId,
 		code: 'workbook.getActiveSheet().getRange("A1").setValue("bundled"); return "ok";',
 	});
@@ -63,14 +80,14 @@ try {
 	}
 	const [leftExecution, rightExecution] = await Promise.all([
 		service.executeUnitContent({
-			file,
-			worktreeId: worktree.worktreeId,
+			...scoped,
+			worktreeId,
 			unitId,
 			code: 'workbook.getActiveSheet().getRange("A2").setValue("left"); return "left";',
 		}),
 		service.executeUnitContent({
-			file,
-			worktreeId: worktree.worktreeId,
+			...scoped,
+			worktreeId,
 			unitId,
 			code: 'workbook.getActiveSheet().getRange("B2").setValue("right"); return "right";',
 		}),
@@ -79,37 +96,57 @@ try {
 		|| rightExecution.result?.committed !== true || rightExecution.result?.value !== "right") {
 		throw new Error(`concurrent Collaboration SDK execution failed: ${JSON.stringify({ leftExecution, rightExecution })}`);
 	}
-	const inspected = await service.inspectUnitContent({
-		file,
-		worktreeId: worktree.worktreeId,
-		unitId,
-		range: "A1:B2",
+
+	const imported = await service.importUnitContent({
+		...scoped,
+		source,
+		sourceWorkspace: workspace,
+		worktreeId,
+		name: "Imported",
 	});
+	const importedUnitId = imported.result?.unitId;
+	if (typeof importedUnitId !== "string" || imported.result?.kind !== "sheet") {
+		throw new Error(`import Unit failed: ${JSON.stringify(imported)}`);
+	}
+
+	const selected = await service.status({ ...scoped, worktreeId });
+	if (selected.result?.selectedWorktree?.units?.length !== 2) {
+		throw new Error(`worktree status did not return explicit Units: ${JSON.stringify(selected)}`);
+	}
+	const inspected = await service.inspectUnitContent({ ...scoped, worktreeId, unitId, range: "A1:B2" });
 	const values = inspected.result?.ranges?.[0]?.displayValues;
 	if (values?.[0]?.[0] !== "bundled" || values?.[1]?.[0] !== "left" || values?.[1]?.[1] !== "right") {
 		throw new Error(`package-local inspect failed: ${JSON.stringify(inspected)}`);
 	}
-	await service.exportUnitContent({
-		file,
-		worktreeId: worktree.worktreeId,
-		unitId,
-		output: exported,
-	});
-	if ((await stat(exported)).size === 0) {
-		throw new Error("package-local export produced an empty file");
+	const inspectedImport = await service.inspectUnitContent({ ...scoped, worktreeId, unitId: importedUnitId, range: "A1:B3" });
+	if (inspectedImport.result?.ranges?.[0]?.displayValues?.[1]?.[0] !== "alpha") {
+		throw new Error(`import readback failed: ${JSON.stringify(inspectedImport)}`);
 	}
 
-	await expectAction(worktree.worktreeId, "ready", "ready");
-	await expectAction(worktree.worktreeId, "reopen", "draft");
-	await expectAction(worktree.worktreeId, "discard", "discarded");
-	const listed = await fetch(`${origin}/uf/${fileKey}/worktrees`);
-	const listing = await listed.json();
-	const discarded = listing.worktrees?.find((entry) => entry.worktreeId === worktree.worktreeId);
-	if (!listed.ok || discarded?.status !== "discarded") {
-		throw new Error(`discard transition failed: ${JSON.stringify(listing)}`);
+	const found = await service.apiReference({ action: "find", queries: ["setValue"], unit: "sheet", limit: 3 });
+	if (found.result?.[0]?.matches?.[0]?.label !== "FRange.setValue") throw new Error(`API find failed: ${JSON.stringify(found)}`);
+	const reference = await service.apiReference({ action: "show", queries: ["FRange.setValue"] });
+	if (reference.result?.[0]?.status !== "found") throw new Error(`API reference failed: ${JSON.stringify(reference)}`);
+
+	await service.exportUnitContent({ ...scoped, worktreeId, unitId, output: exported, outputWorkspace: workspace });
+	if ((await stat(exported)).size === 0) throw new Error("package-local export produced an empty file");
+
+	await expectTransition(worktreeId, "ready", "ready");
+	await expectTransition(worktreeId, "reopen", "draft");
+	await expectTransition(worktreeId, "ready", "ready");
+	await expectTransition(worktreeId, "merge", "merged");
+	const merged = await service.status(scoped);
+	if (merged.result?.trunk?.units?.length !== 2) throw new Error(`merge did not publish Units: ${JSON.stringify(merged)}`);
+
+	const disposable = await service.worktree({ ...scoped, action: "create", name: "discard me" });
+	const disposableId = disposable.result?.worktreeId;
+	if (typeof disposableId !== "string") throw new Error(`disposable worktree failed: ${JSON.stringify(disposable)}`);
+	const discarded = await service.worktreeAction({ ...scoped, action: "discard", worktreeId: disposableId });
+	if (!discarded.ok || discarded.state.worktrees.find((entry) => entry.worktreeId === disposableId)?.status !== "discarded") {
+		throw new Error(`discard transition failed: ${JSON.stringify(discarded)}`);
 	}
 
-	console.log("integration smoke OK (Viewer + Gateway + concurrent SDK workers + Worktree lifecycle, no global CLI)");
+	console.log("integration smoke OK (new/status/Unit/import/API/execute/inspect/export/Worktree lifecycle, no global CLI)");
 } finally {
 	await service.dispose();
 	await new Promise((resolve, reject) => foreign.close((error) => error === undefined ? resolve() : reject(error)));
@@ -128,10 +165,10 @@ async function reservePort() {
 	return address.port;
 }
 
-async function expectAction(worktreeId, action, expectedStatus) {
-	const result = await service.worktreeAction({ action, file, worktreeId });
-	const entry = result.state?.worktrees?.find((worktree) => worktree.worktreeId === worktreeId);
-	if (!result.ok || (expectedStatus !== undefined && entry?.status !== expectedStatus)) {
-		throw new Error(`${action} transition failed: ${JSON.stringify(result)}`);
+async function expectTransition(worktreeId, action, expectedStatus) {
+	const result = await service.worktree({ ...scoped, action, worktreeId });
+	const status = await service.status({ ...scoped, worktreeId });
+	if (!result.ok || status.result?.selectedWorktree?.status !== expectedStatus) {
+		throw new Error(`${action} transition failed: ${JSON.stringify({ result, status })}`);
 	}
 }

@@ -42,9 +42,9 @@
 
 ## 环境要求
 
-- 当前已提交及预构建原生产物要求 Apple Silicon macOS + DeepSeek Harness
-- 不需要全局安装 Univer CLI。插件内置 Gateway、Viewer、无头 Unit Content Worker、Office 转换器、Univer license 与当前平台的原生依赖，并注册 `univer_create`、`univer_inspect`、`univer_execute`、`univer_export` 和 `univer_worktree`。
-- 同步脚本可在 Linux x64/arm64 与 Windows x64 目标环境生成对应原生产物；这些平台的分平台发布流程尚未建立。
+- DeepSeek Harness 与 Node.js 22.19 或更高版本；当前平台的原生依赖由包管理器从 registry 安装
+- 不需要全局安装 Univer CLI。插件内置 Gateway、Viewer、无头 Unit Content Worker、Office 转换器、Univer license、当前平台的原生依赖及按需加载的 Univer Skills，并注册 `univer_new`、`univer_status`、`univer_worktree`、`univer_unit`、`univer_import`、`univer_inspect`、`univer_execute`、`univer_export` 和 `univer_api`。
+- 暂不提供模型截图能力。bundled Skill 会在视觉效果尚未验证时明确说明，不会声称已经完成视觉确认。
 
 ## 安装
 
@@ -85,12 +85,13 @@ bash install.sh
 
 ## 使用
 
-1. 让 agent 使用 `univer_*` 领域工具
-2. 回合结束后，回合尾部自动出现预览卡片
-3. 点卡片 → 应用内全屏预览
-4. 创建 worktree → 角落弹出实时浮窗，agent 的每次修改实时可见
-5. 在审阅面板提交修改等待确认；会话结束后浮窗自动关闭，合并预览嵌入会话下方
-6. 内置 Gateway 未运行时卡片上显示黄色圆点，点击即可启动 Gateway
+1. 创建空 `.univer` 文件，再创建隔离 worktree
+2. 在 draft worktree 中创建指定类型的 Unit，或导入 Office 文件
+3. 按需加载对应 Unit Skill；需要准确 Facade 或方法时用 `univer_api` 查询
+4. 用 `univer_execute` 修改，用 `univer_inspect` 检查内容，只在用户要求时导出
+5. 用 `ready` 提交确认；同一任务需要继续修改时用 `reopen`
+6. 只有用户明确要求且 DSH 审批通过后才 merge 或 discard；应用内审阅面板也提供相同决策
+7. 预览卡片、实时 worktree 浮窗和会话结束审阅面板会随结构化工具结果更新
 
 ## 卸载
 
@@ -104,18 +105,18 @@ univer-dsh uninstall
 
 本项目是一个可安装的 DSH bundle，内部由多个 Cordis 角色组成：
 
-- Host 根插件组合 Univer Service Provider、webServer Consumer 和 Tools Consumer；
+- Host 根插件组合 Univer Service Provider、webServer Consumer、Tools Consumer 和 bundled lazy Skill Provider；
 - Consumer 只调用 `ctx.univer`，不会直接访问 Gateway、CLI、子进程或文件系统；
 - `host/webServer` 提供 `GET /univer-api/status`、`POST /univer-api/gateway/start`、`GET /univer-api/state` 和 `POST /univer-api/worktree-action`；
 - Tools Consumer 注册领域工具，不提供通用 CLI 透传；
-- `host/processes/gateway` 管理内置 Gateway 进程和 Viewer 资源；`host/adapters/unit-content` 为 inspect、execute、export 启动来自 `workers/unit-content` 的一次性 Unit Content Worker；
+- `host/processes/gateway` 管理内置 Gateway 进程和 Viewer 资源；`host/adapters/unit-content` 为 import、inspect、execute、export 启动来自 `workers/unit-content` 的一次性 Unit Content Worker；
 - Client 从持久化工具事件恢复结构化目标，通过统一 API 层轮询状态，再由预览、实时浮窗和审阅组件渲染。
 
-`src/` 是插件手写源码，`lib/index.js`、`lib/client.js` 和 `lib/types/` 均由构建生成；vendored 上游源码与生成产物分别位于 `vendor/collaboration` 和 `vendor/unit-content`。目录、依赖方向和信任边界见[架构决策](docs/architecture.md)。
+`src/` 包含手写的 Host、Client、Gateway application 和 Unit Content Worker 源码。`lib/`、Gateway executable 与 Worker executable 均由构建生成并被 gitignore；只有预构建 Viewer 是版本化的运行资产。目录、依赖方向和信任边界见[架构决策](docs/architecture.md)。
 
 ## 开发
 
-`dist/` 与归档产物（`univer-dsh-plugin.zip`、`*.tgz`）是**生成物**——已加入 `.gitignore`，不入库。`vendor/collaboration/artifacts/` 与 `vendor/unit-content/artifacts/` 需要版本化并随包发布。先构建并测试源码：
+`lib/`、Gateway 与 Worker executable、`dist/` 及归档产物（`univer-dsh-plugin.zip`、`*.tgz`）均为**生成物**，不入库。`pnpm run build` 从 `src/` 编译三个 application；`vendor/collaboration/artifacts/viewer` 下的 Viewer bundle 是唯一版本化的运行资产。
 
 ```sh
 pnpm run build
@@ -128,18 +129,6 @@ pnpm run test
 bash scripts/build-dist.sh
 ```
 
-从 Univer CLI checkout 同步 Gateway、Viewer 与协作源码快照：
-
-```sh
-npm run sync:collaboration -- /path/to/univer-cli
-```
-
-同步 Unit Content Worker、内嵌 Univer development credential 与当前平台原生依赖：
-
-```sh
-UNIVER_CLI_SOURCE=/path/to/univer-cli npm run sync:unit-content
-```
-
 该脚本会重新生成 `dist/univer/`（发布包内容）、npm tarball `dist/univer-office-<version>.tgz` 与 zip 分发包 `univer-dsh-plugin.zip`（包内容 + 来自 `packaging/` 的 `install.command` + `INSTALL*.txt`）。
 
 单独运行冒烟测试：
@@ -147,6 +136,7 @@ UNIVER_CLI_SOURCE=/path/to/univer-cli npm run sync:unit-content
 ```sh
 node test/host-smoke.mjs
 node test/client-smoke.mjs
+node test/skills-smoke.mjs
 npm run test:integration
 ```
 

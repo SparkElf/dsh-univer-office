@@ -4,7 +4,8 @@
 //
 //   pnpm run build:lib     → lib/index.js (host) + lib/client.js (client bundle)
 //   pnpm run build:worker  → vendor/unit-content/artifacts/unit-content-worker.mjs
-//   pnpm run build         → both
+//   pnpm run build:gateway → vendor/collaboration/artifacts/gateway.cjs
+//   pnpm run build         → all three applications
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { builtinModules } from 'node:module'
@@ -25,6 +26,7 @@ const external = [
   '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-host-webserver',
   '@deepseek-ai/dsh-session',
+  '@deepseek-ai/dsh-skill',
   '@deepseek-ai/dsh-tools',
   '@deepseek-ai/schemastery',
   // Large / binary packages: never inlined, declared as runtime dependencies
@@ -100,7 +102,7 @@ if (target === 'all' || target === 'worker') {
 }
 
 if (target === 'all' || target === 'gateway') {
-  // Collaboration Gateway: a standalone server built from the vendored-in
+  // Collaboration Gateway: a standalone server built from the plugin-owned
   // gateway application sources (src/gateway-app) over the collaboration SDK.
   const gatewayOut = 'vendor/collaboration/artifacts/gateway.cjs'
   const gatewayExternal = [
