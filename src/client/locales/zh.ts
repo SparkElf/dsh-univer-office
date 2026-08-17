@@ -8,5 +8,5 @@ export const zh: Record<string, string> = {
   'dock.fold': '折叠', 'dock.expand': '展开', 'dock.maximize': '放大', 'dock.restore': '还原', 'dock.close': '关闭',
   'dock.gatewayDown': 'Univer Gateway 未运行，无法实时预览', 'dock.startGateway': '启动 Gateway',
   'dock.mergeTitle': '合并预览', 'dock.reviewTitle': '正在进行的修改', 'dock.markReady': '提交确认',
-  'dock.notReady': '提交确认后，可以合入或丢弃这处修改', 'dock.merge': '合入当前版本', 'dock.reopen': '恢复编辑', 'dock.discard': '丢弃',
+  'dock.notReady': '提交确认后，可以合入或丢弃这处修改', 'dock.merge': '合入当前版本', 'dock.discard': '丢弃',
 }

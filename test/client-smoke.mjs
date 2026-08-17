@@ -375,6 +375,7 @@ q('.uvf_action[data-kind=ready]').dispatchEvent(new dom.window.MouseEvent('click
 await waitFor('标记 ready 后切到合并预览', () => q('.uvf_panelFrame')?.getAttribute('src') === DEFAULT_MERGE_URL)
 if ((q('.uvf_panelChip')?.textContent ?? '') !== '待确认') throw new Error('panel chip must switch to 待确认')
 if (q('.uvf_action[data-kind=merge]') === null) throw new Error('merge action must appear once marked ready')
+await waitFor('ready 操作恢复可用', () => q('.uvf_action[data-kind=merge]')?.disabled === false)
 
 // ---- scenario 4: ready + session end → window closes, merge panel embeds ----
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
@@ -385,24 +386,16 @@ if ((q('.uvf_panelTitle')?.textContent ?? '').includes('v3smoke') === false) thr
 if ((q('.uvf_panelChip')?.textContent ?? '') !== '待确认') throw new Error('panel chip must say 待确认')
 {
   const kinds = qa('.uvf_action').map((el) => el.getAttribute('data-kind'))
-  if (kinds.includes('merge') === false || kinds.includes('reopen') === false || kinds.includes('discard') === false) {
-    throw new Error('review action buttons missing: ' + kinds.join(','))
+  if (kinds.includes('merge') === false || kinds.includes('discard') === false || kinds.includes('reopen') === true) {
+    throw new Error('ready panel actions wrong: ' + kinds.join(','))
   }
 }
 
-// ---- scenario 4a: reopen → back to the draft review panel ----
-worktrees = [wt('ready')]
-render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
-await waitFor('ready 面板出现（reopen 场景）', () => q('.uvf_action[data-kind=reopen]') !== null)
-q('.uvf_action[data-kind=reopen]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
-await waitFor('reopen 请求发出', () => actionLog.some((entry) => entry.action === 'reopen'))
-await waitFor('恢复编辑后回到 draft 审阅面板', () => q('.uvf_panelChip')?.textContent === '修改中')
-if (q('.uvf_win') !== null) throw new Error('no floating window for a draft worktree after session end')
-if (q('.uvf_action[data-kind=ready]') === null) throw new Error('draft panel must offer mark-ready after reopen')
-
-// ---- scenario 4b: merge conflict → error shown, panel stays ----
+// ---- scenario 4a: merge conflict → error shown, panel stays ----
 failMerge = true
 worktrees = [wt('ready')]
+render(sessionWithTargets([], false))
+await waitFor('冲突场景重置审阅面板', () => q('.uvf_panel') === null)
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('ready 面板出现（冲突场景）', () => q('.uvf_action[data-kind=merge]') !== null)
 q('.uvf_action[data-kind=merge]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
@@ -410,7 +403,9 @@ await waitFor('冲突错误显示', () => (q('.uvf_error')?.textContent ?? '').i
 if (q('.uvf_panel') === null) throw new Error('panel must stay after a failed merge')
 failMerge = false
 
-// ---- scenario 4c: merge success → terminal, nothing renders anywhere ----
+// ---- scenario 4b: merge success → terminal, nothing renders anywhere ----
+render(sessionWithTargets([], false))
+await waitFor('merge 成功场景重置审阅面板', () => q('.uvf_panel') === null)
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('面板出现（merge 成功场景）', () => q('.uvf_panel') !== null)
 q('.uvf_action[data-kind=merge]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
@@ -418,11 +413,11 @@ await waitFor('merge 后面板关闭', () => q('.uvf_panel') === null)
 await new Promise((resolvePromise) => setTimeout(resolvePromise, 900))
 if (q('.uvf_win') !== null) throw new Error('merged worktree must not open a window')
 
-// ---- scenario 4d: discard → panel closes, no window ----
+// ---- scenario 4c: discard → panel closes, no window ----
 worktrees = [wt('ready')]
+render(sessionWithTargets([], false))
+await waitFor('discard 场景重置审阅面板', () => q('.uvf_panel') === null)
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
-// The same component instance survives root re-renders; wait for the poll to
-// replace the merged state with the ready state before clicking.
 await waitFor('ready 面板出现（discard 场景）', () => q('.uvf_action[data-kind=discard]') !== null)
 q('.uvf_action[data-kind=discard]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
 await waitFor('discard 后面板关闭', () => q('.uvf_panel') === null)

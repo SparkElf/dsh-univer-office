@@ -13,7 +13,7 @@ export function ReviewPanel(props: { readonly sessionId: string; readonly file: 
   const ready = props.worktree.status === 'ready'
   const selectedUnit = selected !== undefined && props.worktree.units.some((unit) => unit.unitId === selected) ? selected : props.worktree.units[0]?.unitId
   const url = unitViewerUrl(ready ? props.worktree.mergeUrl : props.worktree.worktreeUrl, props.worktree.units, selectedUnit, ready ? 'merge' : 'worktree')
-  const run = async (name: 'ready' | 'reopen' | 'discard' | 'merge'): Promise<void> => {
+  const run = async (name: 'ready' | 'discard' | 'merge'): Promise<void> => {
     const result = await action.perform(name)
     if (result?.ok) props.applyState(result.state)
   }
@@ -28,7 +28,6 @@ export function ReviewPanel(props: { readonly sessionId: string; readonly file: 
       {url === undefined ? null : <iframe className="uvf_panelFrame" src={url} title={props.worktree.name || props.worktree.worktreeId} />}
       <div className="uvf_panelFoot">
         <span className={action.error === null ? 'uvf_hint' : 'uvf_error'}>{action.error ?? (ready ? '' : props.t('dock.notReady'))}</span>
-        {ready ? <button type="button" className="uvf_action" data-kind="reopen" disabled={action.busy !== null} onClick={() => void run('reopen')}>{props.t('dock.reopen')}</button> : null}
         <button type="button" className="uvf_action" data-kind="discard" disabled={action.busy !== null} onClick={() => void run('discard')}>{props.t('dock.discard')}</button>
         <button type="button" className="uvf_action" data-kind={ready ? 'merge' : 'ready'} disabled={action.busy !== null} onClick={() => void run(ready ? 'merge' : 'ready')}>{props.t(ready ? 'dock.merge' : 'dock.markReady')}</button>
       </div>

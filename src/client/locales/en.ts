@@ -8,5 +8,5 @@ export const en: Record<string, string> = {
   'dock.fold': 'Collapse', 'dock.expand': 'Expand', 'dock.maximize': 'Maximize', 'dock.restore': 'Restore', 'dock.close': 'Close',
   'dock.gatewayDown': 'Univer Gateway is not running; live preview is unavailable', 'dock.startGateway': 'Start Gateway',
   'dock.mergeTitle': 'Merge preview', 'dock.reviewTitle': 'Modification in progress', 'dock.markReady': 'Submit for confirmation',
-  'dock.notReady': 'Submit this modification for confirmation before merging or discarding it', 'dock.merge': 'Merge into current version', 'dock.reopen': 'Resume editing', 'dock.discard': 'Discard',
+  'dock.notReady': 'Submit this modification for confirmation before merging or discarding it', 'dock.merge': 'Merge into current version', 'dock.discard': 'Discard',
 }
