@@ -78,7 +78,6 @@
     "prepublishOnly": "pnpm run build && pnpm run test"
   },
   "dependencies": {
-    "@univer-cli/api-reference": "1.0.0-insiders.20260813-7c9aa50",
     "@univerjs-pro/cli-assets": "0.1.0",
     "@univerjs-pro/engine-formula-rust-binding": "1.0.0-insiders.20260811-001a0e5",
     "@univerjs-pro/uexcli": "0.3.2",
@@ -104,6 +103,7 @@
     "@deepseek-ai/schemastery": "^3.18.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
+    "@univer-cli/api-reference": "1.0.0-insiders.20260813-7c9aa50",
     "@univer-cli/content-execution": "1.0.0-insiders.20260813-7c9aa50",
     "@univer-cli/content-inspection": "1.0.0-insiders.20260813-7c9aa50",
     "@univer-cli/headless-univer": "1.0.0-insiders.20260813-7c9aa50",

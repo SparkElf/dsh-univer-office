@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@univer-cli/api-reference':
-        specifier: 1.0.0-insiders.20260813-7c9aa50
-        version: 1.0.0-insiders.20260813-7c9aa50
       '@univerjs-pro/cli-assets':
         specifier: 0.1.0
         version: 0.1.0
@@ -48,6 +45,9 @@ importers:
       '@types/react':
         specifier: ^19.2.18
         version: 19.2.18
+      '@univer-cli/api-reference':
+        specifier: 1.0.0-insiders.20260813-7c9aa50
+        version: 1.0.0-insiders.20260813-7c9aa50
       '@univer-cli/content-execution':
         specifier: 1.0.0-insiders.20260813-7c9aa50
         version: 1.0.0-insiders.20260813-7c9aa50
