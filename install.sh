@@ -42,7 +42,7 @@ done
 echo "   ✅ Plugin files installed"
 
 # 2. Write the loader entry (idempotent; keeps cordis.patch.yml valid YAML)
-if ! grep -q "name: 'dsh-univer-office'" "$PATCH" 2>/dev/null; then
+if ! grep -qE "^\s*- id: univer" "$PATCH" 2>/dev/null; then
   mkdir -p "$(dirname "$PATCH")"
   # Drop a lone empty-array template line ("[]") so appending the insert entry
   # below stays a valid top-level YAML array (the profile template ships as `[]`).
