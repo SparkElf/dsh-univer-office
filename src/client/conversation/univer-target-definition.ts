@@ -1,4 +1,8 @@
-import type { SessionSnapshot } from '../dsh.ts'
+import type {
+  ConversationNodeDefinition, ConversationSnapshot,
+} from '@deepseek-ai/dsh-client-runtime/client'
+import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 
 /** One preview target recovered from durable conversation events. */
 export interface UniverTarget {
@@ -6,53 +10,62 @@ export interface UniverTarget {
   readonly worktreeId: string | null
 }
 
-/** Turn-local state stored by the DSH conversation event engine. */
+/** Turn data published by the Univer conversation definition. */
 export interface UniverTurnData {
-  readonly turn: unknown
   readonly targets: readonly UniverTarget[]
 }
 
-interface EventEnvelope { readonly type: string; readonly data: Record<string, unknown> }
-interface DefinitionContext { readonly state: UniverTurnData }
-interface DefinitionMatch { readonly event: EventEnvelope }
+/** Match passed from the turn-tail selector to the preview component. */
+export interface UniverPreviewMatch extends UniverTurnData {}
+
+interface UniverTargetState extends UniverTurnData {
+  readonly turn: number
+}
+
+declare module '@deepseek-ai/dsh-client-runtime/client' {
+  interface ConversationTurnDataMap {
+    /** Univer files and worktrees mentioned during this Turn. */
+    univerTarget: UniverTurnData
+  }
+}
 
 /** Conversation definition that projects tool calls/results into preview targets. */
 export const univerTargetDefinition = {
   kind: 'univerTarget',
-  match(event: EventEnvelope) {
+  match(event: SessionEvent) {
     if (event.type === 'turn/start') return { id: String(event.data.turn), role: 'start' }
     if (event.type === 'tool/call' || event.type === 'tool/result') return { id: String(event.data.turn), role: 'update' }
     return null
   },
-  start(_context: unknown, match: DefinitionMatch): UniverTurnData {
+  start(_context, match): UniverTargetState {
+    if (match.event.type !== 'turn/start') throw new Error('univerTarget start match must be turn/start')
     return { turn: match.event.data.turn, targets: [] }
   },
-  update(context: DefinitionContext, match: DefinitionMatch): UniverTurnData {
+  update(context, match): UniverTargetState {
     const additions = targetsFromEvent(match.event)
     return additions.length === 0 ? context.state : { ...context.state, targets: mergeTargets(context.state.targets, additions) }
   },
-  buildLocationData(context: { readonly state?: UniverTurnData }, scope: string) {
+  buildLocationData(context, scope) {
     if (scope !== 'turn' || context.state === undefined) return null
     return { kind: 'turn', turn: context.state.turn, key: 'univerTarget', value: { targets: context.state.targets } }
   },
-}
+} satisfies ConversationNodeDefinition<UniverTargetState>
 
 /** Select a turn-tail preview only for turns containing Univer targets. */
-export function selectUniverPreview(owner: { readonly turn: { readonly data: Map<string, unknown> } }) {
+export function selectUniverPreview(owner: TurnTailOwnerProps): UniverPreviewMatch | null {
   const data = owner.turn.data.get('univerTarget')
-  if (!isTurnData(data) || data.targets.length === 0) return null
+  if (data === undefined || data.targets.length === 0) return null
   return { targets: data.targets }
 }
 
 /** Recover all unique target files and mentioned worktrees from a session. */
-export function targetsOfSession(session: SessionSnapshot | null, cwd?: string): { readonly files: string[]; readonly worktreeIds: Set<string> } {
+export function targetsOfSession(session: ConversationSnapshot, cwd?: string): { readonly files: string[]; readonly worktreeIds: Set<string> } {
   const files: string[] = []
   const worktreeIds = new Set<string>()
-  const turns = session?.chat?.timeline?.turns
-  if (turns === undefined) return { files, worktreeIds }
+  const turns = session.chat.timeline.turns
   for (const turn of turns.values()) {
-    const data = turn.data?.get('univerTarget')
-    if (!isTurnData(data)) continue
+    const data = turn.data.get('univerTarget')
+    if (data === undefined) continue
     for (const target of data.targets) {
       const file = resolveTargetFile(target.file, cwd)
       if (!files.includes(file)) files.push(file)
@@ -62,14 +75,13 @@ export function targetsOfSession(session: SessionSnapshot | null, cwd?: string):
   return { files, worktreeIds }
 }
 
-function targetsFromEvent(event: EventEnvelope): UniverTarget[] {
+function targetsFromEvent(event: SessionEvent): UniverTarget[] {
   if (event.type === 'tool/call') return targetsFromCall(event.data)
   if (event.type === 'tool/result') return targetsFromResult(event.data)
   return []
 }
 
-function targetsFromCall(data: Record<string, unknown>): UniverTarget[] {
-  if (typeof data.name !== 'string' || typeof data.arguments !== 'string') return []
+function targetsFromCall(data: SessionEvent<'tool/call'>['data']): UniverTarget[] {
   let args: Record<string, unknown>
   try {
     const parsed = JSON.parse(data.arguments) as unknown
@@ -84,10 +96,9 @@ function targetsFromCall(data: Record<string, unknown>): UniverTarget[] {
   return []
 }
 
-function targetsFromResult(data: Record<string, unknown>): UniverTarget[] {
-  const message = isRecord(data.message) ? data.message : null
-  const content = message !== null && Array.isArray(message.content) ? message.content : []
-  const text = content.flatMap((block) => isRecord(block) && typeof block.text === 'string' ? [block.text] : []).join('\n')
+function targetsFromResult(data: SessionEvent<'tool/result'>['data']): UniverTarget[] {
+  const content = data.message.content[0].content
+  const text = content.flatMap((block) => block.type === 'text' ? [block.text] : []).join('\n')
   if (text.length === 0) return []
   const structured = parseStructuredResult(text)
   if (structured !== null && typeof structured.file === 'string') {
@@ -131,10 +142,6 @@ function isAbsolute(file: string): boolean {
 export function basename(file: string): string {
   const at = Math.max(file.lastIndexOf('/'), file.lastIndexOf('\\'))
   return at === -1 ? file : file.slice(at + 1)
-}
-
-function isTurnData(value: unknown): value is UniverTurnData {
-  return isRecord(value) && Array.isArray(value.targets)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

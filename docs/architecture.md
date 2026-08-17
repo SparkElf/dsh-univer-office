@@ -68,7 +68,7 @@ flowchart LR
 
 Host 是可信的 Node.js 进程，负责文件访问、进程管理、Gateway 通信、输入校验和工具执行。Client 是浏览器模块，只能通过 `/univer-api/*` 访问 Host，不读取本地文件、不启动进程，也不持有 Gateway 管理权限。
 
-Viewer 可以直接连接 Gateway 的 HTTP/WebSocket 接口以获得实时内容，但 Viewer URL 必须由 Host 根据已验证的文件和 worktree 生成，Client 不自行拼接文件标识。
+Viewer 可以直接连接 Gateway 的 HTTP/WebSocket 接口以获得实时内容，但 Viewer URL 必须由 Host 根据已验证的文件和 worktree 生成，Client 不自行拼接文件标识。Client 只可以在这个不透明 URL 上设置纯展示参数，例如把当前 DSH 语言映射为 Viewer 的 `lang` 参数。
 
 ## 4. 目录结构
 
@@ -302,7 +302,7 @@ Client 必须满足：
 - 轮询在组件卸载、会话切换和页面隐藏时正确停止或降频；
 - 同一个文件/worktree 的浮窗状态可去重，但不能跨会话泄漏；
 - mutation 期间禁用重复操作，完成后重新获取 Host 状态；
-- Viewer URL 视为不透明值，不在组件中修改 query；
+- Viewer URL 的文件、worktree、unit、mode 与 scope 参数视为不透明值；Client 只能设置不改变资源身份和授权范围的展示参数；
 - 终态 worktree 不渲染；
 - UI 文案来自 locale 模块。
 

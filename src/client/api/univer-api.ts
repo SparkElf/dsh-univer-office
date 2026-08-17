@@ -1,3 +1,4 @@
+import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { WorktreeReviewAction, WorktreeActionResult } from '../../shared/wire/actions.ts'
 import type { FileState } from '../../shared/wire/state.ts'
 import type { EnsureGatewayResult, UniverStatus } from '../../shared/wire/status.ts'
@@ -26,12 +27,12 @@ export function startGateway(): Promise<EnsureGatewayResult> {
 }
 
 /** Read one file's current collaboration state and Viewer targets. */
-export function getFileState(file: string, sessionId: string): Promise<FileState> {
+export function getFileState(file: string, sessionId: SessionId): Promise<FileState> {
   return request(`/univer-api/state?file=${encodeURIComponent(file)}&sessionId=${encodeURIComponent(sessionId)}`)
 }
 
 /** Apply a user-owned worktree review decision. */
-export function performWorktreeAction(action: WorktreeReviewAction, file: string, worktreeId: string, sessionId: string): Promise<WorktreeActionResult> {
+export function performWorktreeAction(action: WorktreeReviewAction, file: string, worktreeId: string, sessionId: SessionId): Promise<WorktreeActionResult> {
   return request('/univer-api/worktree-action', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

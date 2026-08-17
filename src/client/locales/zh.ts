@@ -1,5 +1,5 @@
 /** Simplified Chinese UI strings. */
-export const zh: Record<string, string> = {
+export const zh = {
   title: 'Univer 预览', expand: '展开预览', collapse: '收起预览', refresh: '刷新',
   'gateway.running': 'Univer Gateway 运行中', 'gateway.stopped': 'Univer Gateway 未运行，点击启动',
   'gateway.starting': '正在启动 Univer Gateway…', 'gateway.checking': '正在检查 Univer Gateway…', 'gateway.failed': 'Univer Gateway 不可用，点击重试',
@@ -9,4 +9,7 @@ export const zh: Record<string, string> = {
   'dock.gatewayDown': 'Univer Gateway 未运行，无法实时预览', 'dock.startGateway': '启动 Gateway',
   'dock.mergeTitle': '合并预览', 'dock.reviewTitle': '正在进行的修改', 'dock.markReady': '提交确认',
   'dock.notReady': '提交确认后，可以合入或丢弃这处修改', 'dock.merge': '合入当前版本', 'dock.discard': '丢弃',
-}
+} as const
+
+/** Translation keys owned by the Univer browser surfaces. */
+export type UniverLocaleKey = keyof typeof zh

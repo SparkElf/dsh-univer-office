@@ -1,9 +1,10 @@
 import * as React from 'react'
+import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { WorktreeReviewAction, WorktreeActionResult } from '../../shared/wire/actions.ts'
 import { performWorktreeAction } from '../api/univer-api.ts'
 
 /** Serialize user review actions and expose their current state. */
-export function useWorktreeAction(file: string, worktreeId: string, sessionId: string): {
+export function useWorktreeAction(file: string, worktreeId: string, sessionId: SessionId): {
   readonly busy: WorktreeReviewAction | null
   readonly error: string | null
   readonly perform: (action: WorktreeReviewAction) => Promise<WorktreeActionResult | null>

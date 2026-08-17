@@ -38,7 +38,7 @@ Create and preview Univer office files (sheets, docs, slides, bases) directly in
 - **Ready + session end → close, then merge panel** — once the session goes idle, every **non-terminal** worktree moves into the review dock below the conversation: `ready` shows the merge preview (`scope=mergePreview`) plus Discard / Merge into current version actions; **`draft` shows up too**, with the live worktree page plus Submit for confirmation / Discard actions (so a modification the agent forgot to submit is still reviewable). While the session is still running, non-terminal worktrees stay as top-right windows. **Merged or discarded worktrees (terminal states) show nothing — no window, no panel.**
 - **Bundled Gateway management** — the plugin ships the collaboration Gateway and Viewer; green dot = running, yellow dot = stopped, click to start the plugin-owned Gateway.
 - **Multi-session** — each session shows its own turn's cards, windows, and merge panels.
-- **Bilingual UI** — the card follows the app locale (zh / en).
+- **Bilingual UI** — the plugin shell and every open Viewer follow the app locale (zh / en).
 
 ## Requirements
 

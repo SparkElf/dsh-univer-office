@@ -1,18 +1,22 @@
 import * as React from 'react'
-import type { FileState, WorktreeState } from '../../shared/wire/state.ts'
-import type { Translate } from '../dsh.ts'
+import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type { ActiveWorktreeState, FileState } from '../../shared/wire/state.ts'
 import { basename } from '../conversation/univer-target-definition.ts'
 import { useWorktreeAction } from '../hooks/use-worktree-action.ts'
+import { localizeViewerUrl } from '../viewer-locale.ts'
+import type { ViewerLocale } from '../viewer-locale.ts'
 import { UnitChips, unitViewerUrl } from './unit-chips.tsx'
 
 /** Session-end review panel for a draft or ready worktree. */
-export function ReviewPanel(props: { readonly sessionId: string; readonly file: string; readonly worktree: WorktreeState; readonly t: Translate; readonly applyState: (state: FileState) => void }): React.ReactElement {
+export function ReviewPanel(props: { readonly sessionId: SessionId; readonly file: string; readonly worktree: ActiveWorktreeState; readonly t: TranslateNS<'univer'>; readonly viewerLocale: ViewerLocale; readonly applyState: (state: FileState) => void }): React.ReactElement {
   const [open, setOpen] = React.useState(true)
   const [selected, setSelected] = React.useState<string | undefined>()
   const action = useWorktreeAction(props.file, props.worktree.worktreeId, props.sessionId)
   const ready = props.worktree.status === 'ready'
   const selectedUnit = selected !== undefined && props.worktree.units.some((unit) => unit.unitId === selected) ? selected : props.worktree.units[0]?.unitId
-  const url = unitViewerUrl(ready ? props.worktree.mergeUrl : props.worktree.worktreeUrl, props.worktree.units, selectedUnit, ready ? 'merge' : 'worktree')
+  const target = unitViewerUrl(ready ? props.worktree.mergeUrl : props.worktree.worktreeUrl, props.worktree.units, selectedUnit, ready ? 'merge' : 'worktree')
+  const url = target === undefined ? undefined : localizeViewerUrl(target, props.viewerLocale)
   const run = async (name: 'ready' | 'discard' | 'merge'): Promise<void> => {
     const result = await action.perform(name)
     if (result?.ok) props.applyState(result.state)

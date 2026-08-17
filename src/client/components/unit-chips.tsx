@@ -1,11 +1,11 @@
 import * as React from 'react'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ChangedUnit } from '../../shared/wire/state.ts'
-import type { Translate } from '../dsh.ts'
 
 const ICONS: Record<ChangedUnit['kind'], string> = { added: '＋', modified: '✎', deleted: '－', conflict: '⚠' }
 
 /** Navigation chips for the units changed by a worktree. */
-export function UnitChips(props: { readonly units: readonly ChangedUnit[]; readonly selected: string | undefined; readonly t: Translate; readonly onSelect: (unitId: string) => void }): React.ReactElement | null {
+export function UnitChips(props: { readonly units: readonly ChangedUnit[]; readonly selected: string | undefined; readonly t: TranslateNS<'univer'>; readonly onSelect: (unitId: string) => void }): React.ReactElement | null {
   if (props.units.length <= 1) return null
   return <div className="uvf_units">{props.units.map((unit) => <button
     key={unit.unitId}

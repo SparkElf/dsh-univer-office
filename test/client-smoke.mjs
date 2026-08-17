@@ -24,6 +24,11 @@ const WORKTREE = 'wt-msvqmweb-47hcdg'
 const OPEN_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg'
 const VIEW_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg&mode=embedded&scope=worktree'
 const MERGE_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg&mode=embedded&scope=mergePreview'
+const withLang = (url, lang) => {
+  const target = new URL(url)
+  target.searchParams.set('lang', lang)
+  return target.toString()
+}
 const UNITS = [
   { unitId: 'u-msvo3wpe-p4pqi4', name: '销售', type: 2, kind: 'modified', worktreeUrl: VIEW_URL + '&unit=u-msvo3wpe-p4pqi4', mergeUrl: MERGE_URL + '&unit=u-msvo3wpe-p4pqi4' },
   { unitId: 'u-msvy1lry-dv3hia', name: '班级成绩汇报', type: 3, kind: 'added', worktreeUrl: VIEW_URL + '&unit=u-msvy1lry-dv3hia', mergeUrl: MERGE_URL + '&unit=u-msvy1lry-dv3hia' },
@@ -32,6 +37,13 @@ const UNITS = [
 const DEFAULT_UNIT_URL = VIEW_URL + '&unit=' + encodeURIComponent(UNITS[0].unitId)
 const SLIDE_UNIT_URL = VIEW_URL + '&unit=' + encodeURIComponent(UNITS[1].unitId)
 const DEFAULT_MERGE_URL = MERGE_URL + '&unit=' + encodeURIComponent(UNITS[0].unitId)
+const ZH_OPEN_URL = withLang(OPEN_URL, 'zh-CN')
+const EN_OPEN_URL = withLang(OPEN_URL, 'en-US')
+const ZH_DEFAULT_UNIT_URL = withLang(DEFAULT_UNIT_URL, 'zh-CN')
+const EN_DEFAULT_UNIT_URL = withLang(DEFAULT_UNIT_URL, 'en-US')
+const ZH_SLIDE_UNIT_URL = withLang(SLIDE_UNIT_URL, 'zh-CN')
+const EN_SLIDE_UNIT_URL = withLang(SLIDE_UNIT_URL, 'en-US')
+const ZH_DEFAULT_MERGE_URL = withLang(DEFAULT_MERGE_URL, 'zh-CN')
 let worktrees = []
 const wt = (status, worktreeId = WORKTREE) => ({
   worktreeId,
@@ -139,6 +151,8 @@ if (typeof pluginExports.apply !== 'function') throw new Error('client module ex
 const slotEntries = []
 let localeDicts = null
 let conversationDefinition = null
+let activeLocale = 'zh'
+let localeRevision = 0
 const fakeCtx = {
   effect(fn) {
     const disposer = fn()
@@ -160,7 +174,10 @@ const fakeCtx = {
       return () => {}
     },
     bind() {
-      return (key) => (localeDicts?.dicts.zh[key] ?? key)
+      return (key) => (localeDicts?.dicts[activeLocale][key] ?? key)
+    },
+    getSnapshot() {
+      return { active: activeLocale, revision: localeRevision }
     },
   },
   conversationEvents: {
@@ -172,11 +189,16 @@ const fakeCtx = {
 }
 pluginExports.apply(fakeCtx)
 const dockEntry = slotEntries.find((entry) => entry.options.name === 'conversation.input.dock' && entry.options.id === 'univer-dock')
-const tailEntry = slotEntries.find((entry) => entry.options.name === 'conversation.chat.turnTail' && entry.options.id === 'univer')
+const tailEntry = slotEntries.find((entry) => entry.options.name === 'conversation.chat.turnTail')
 if (dockEntry === undefined) throw new Error('dock entry missing: ' + slotEntries.map((e) => e.options.name + '/' + e.options.id).join(','))
 if (tailEntry === undefined) throw new Error('turn-tail entry missing (existing preview card must stay registered)')
+if ('id' in tailEntry.options) throw new Error('chain entries must not declare a list-slot id')
 if (localeDicts === null || localeDicts.ns !== 'univer') throw new Error('locale dictionaries not registered')
 if (conversationDefinition === null || conversationDefinition.kind !== 'univerTarget') throw new Error('conversationEvents definition not registered')
+if (dockEntry.options.locale !== 'univer' || tailEntry.options.locale !== 'univer') throw new Error('both UI entries must declare the Univer locale namespace')
+const dockInjected = dockEntry.options.inject()
+const tailInjected = tailEntry.options.inject()
+if (typeof dockInjected.getViewerLocale !== 'function' || typeof tailInjected.getViewerLocale !== 'function') throw new Error('Viewer locale getter missing')
 
 // ---- definition pure-accumulator sanity (replay-safe, unchanged behavior) ----
 {
@@ -191,17 +213,22 @@ if (conversationDefinition === null || conversationDefinition.kind !== 'univerTa
   }
   state = def.update(mkContext(state), univerCall)
   if (state.targets.length !== 1 || state.targets[0].file !== '/x/proj/notes/demo.univer' || state.targets[0].worktreeId !== 'wt-abc12345') throw new Error('structured target extraction wrong: ' + JSON.stringify(state.targets))
+  const univerResult = {
+    id: '7', role: 'update', location: { kind: 'turn', turn: 7 },
+    event: { type: 'tool/result', data: { turn: 7, step: 1, message: { content: [{ type: 'tool-result', content: [{ type: 'text', text: JSON.stringify({ file: '/x/proj/notes/result.univer', result: { worktreeId: 'wt-result-1234' } }) }] }] } } },
+  }
+  state = def.update(mkContext(state), univerResult)
+  if (state.targets.length !== 2 || state.targets[1].file !== '/x/proj/notes/result.univer' || state.targets[1].worktreeId !== 'wt-result-1234') throw new Error('typed tool-result extraction wrong: ' + JSON.stringify(state.targets))
   const locationData = def.buildLocationData(mkContext(state), 'turn')
-  if (locationData === null || locationData.key !== 'univerTarget' || locationData.value.targets.length !== 1) throw new Error('buildLocationData wrong')
+  if (locationData === null || locationData.key !== 'univerTarget' || locationData.value.targets.length !== 2) throw new Error('buildLocationData wrong')
 }
 
 // ---- render harness ----
-const zh = localeDicts.dicts.zh
-const t = (key) => zh[key] ?? key
+const t = (key) => localeDicts.dicts[activeLocale][key] ?? key
 const sessionWithTargets = (targets, running) => ({
   sessionId: 'test-session-id',
   running,
-  chat: { timeline: { turns: new Map([[3, { data: { get: (key) => (key === 'univerTarget' ? { turn: 3, targets } : undefined) } }]]) } },
+  chat: { timeline: { turns: new Map([[3, { data: { get: (key) => (key === 'univerTarget' ? { targets } : undefined) } }]]) } },
 })
 const rootEl = document.createElement('div')
 document.body.appendChild(rootEl)
@@ -209,12 +236,13 @@ const reactRoot = createRoot(rootEl)
 const SESSION_CWD = join(tmpdir(), 'dsh-univer-client-smoke', 'workdir')
 const REL_DEMO_FILE = SESSION_CWD + '/work_班级成绩表/班级管理.univer'
 let scenario = 0
-function render(session) {
-  scenario += 1
+function render(session, remount = true) {
+  if (remount) scenario += 1
   reactRoot.render(React.createElement(dockEntry.Component, {
     key: 's' + scenario,
     session,
     t,
+    getViewerLocale: dockInjected.getViewerLocale,
     sessionId: 'test-session-id',
     useSessions: (selector) => selector({ byId: { 'test-session-id': { cwd: SESSION_CWD } } }),
   }))
@@ -235,14 +263,27 @@ const tailRootEl = document.createElement('div')
 document.body.appendChild(tailRootEl)
 const tailRoot = createRoot(tailRootEl)
 worktrees = [wt('draft')]
-tailRoot.render(React.createElement(tailEntry.Component, {
+const tailProps = {
   matched: { targets: [{ file: DEMO_FILE, worktreeId: WORKTREE }] },
   sessionId: 'test-session-id',
   t,
-}))
+  getViewerLocale: tailInjected.getViewerLocale,
+}
+tailRoot.render(React.createElement(tailEntry.Component, tailProps))
 await waitFor('回合尾部预览卡片', () => q('.unvT_expandBtn') !== null)
 q('.unvT_expandBtn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
-await waitFor('完整 Viewer 页面', () => q('.unvT_frame')?.getAttribute('src') === OPEN_URL)
+await waitFor('中文完整 Viewer 页面', () => q('.unvT_frame')?.getAttribute('src') === ZH_OPEN_URL)
+const tailFrame = q('.unvT_frame')
+activeLocale = 'en'
+localeRevision += 1
+tailRoot.render(React.createElement(tailEntry.Component, tailProps))
+await waitFor('预览卡片切换英文', () => q('.unvT_expandBtn')?.textContent.includes('Collapse') === true && q('.unvT_frame')?.getAttribute('title') === 'Univer Preview')
+if (q('.unvT_frame') !== tailFrame) throw new Error('locale switch must update the existing standalone Viewer iframe')
+if (q('.unvT_frame')?.getAttribute('src') !== EN_OPEN_URL) throw new Error('standalone Viewer must receive en-US after DSH switches to English')
+activeLocale = 'zh'
+localeRevision += 1
+tailRoot.render(React.createElement(tailEntry.Component, tailProps))
+await waitFor('预览卡片切回中文', () => q('.unvT_frame')?.getAttribute('src') === ZH_OPEN_URL && q('.unvT_frame')?.getAttribute('title') === 'Univer 预览')
 tailRoot.unmount()
 tailRootEl.remove()
 
@@ -260,9 +301,10 @@ if ((q('.uvf_panelTitle')?.textContent ?? '').includes('v3smoke') === false) thr
 
 // ---- scenario 1: draft → floating window with live iframe ----
 worktrees = [wt('merged', 'wt-other-000001'), wt('draft')]
-render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], true))
+const liveDraftSession = sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], true)
+render(liveDraftSession)
 await waitFor('draft 浮窗出现', () => q('.uvf_win') !== null)
-if (q('.uvf_frame')?.getAttribute('src') !== DEFAULT_UNIT_URL) throw new Error('window iframe must default to the changed unit')
+if (q('.uvf_frame')?.getAttribute('src') !== ZH_DEFAULT_UNIT_URL) throw new Error('window iframe must default to the changed unit in the DSH locale')
 {
   const chips = qa('.uvf_unit')
   if (chips.length !== 3) throw new Error('unit chips missing: ' + chips.length)
@@ -273,11 +315,26 @@ if (q('.uvf_frame')?.getAttribute('src') !== DEFAULT_UNIT_URL) throw new Error('
   if (chips[0].getAttribute('data-kind') !== 'modified') throw new Error('chip must carry its change kind')
   if ((chips[0].textContent ?? '').includes('销售') === false) throw new Error('chip must name the unit')
   chips[1].dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
-  await waitFor('切换 unit 后 iframe 跟随', () => q('.uvf_frame')?.getAttribute('src') === SLIDE_UNIT_URL)
+  await waitFor('切换 unit 后 iframe 跟随', () => q('.uvf_frame')?.getAttribute('src') === ZH_SLIDE_UNIT_URL)
 }
 if ((q('.uvf_windowTitle')?.textContent ?? '').includes('v3smoke') === false) throw new Error('title must name the draft worktree')
 if (qa('.uvf_win').length !== 1) throw new Error('worktrees the session never mentioned must stay hidden')
 if (q('.uvf_panel') !== null) throw new Error('no merge panel while the worktree is draft')
+
+// ---- scenario 1b: DSH locale switch updates shell copy and the live Viewer in place ----
+{
+  const frame = q('.uvf_frame')
+  activeLocale = 'en'
+  localeRevision += 1
+  render(liveDraftSession, false)
+  await waitFor('浮窗切换英文', () => q('.uvf_chip')?.textContent === 'Editing' && q('[data-window-action=close]')?.getAttribute('title') === 'Close')
+  if (q('.uvf_frame') !== frame) throw new Error('locale switch must preserve the live iframe element')
+  if (q('.uvf_frame')?.getAttribute('src') !== EN_SLIDE_UNIT_URL) throw new Error('live Viewer must receive en-US after DSH switches to English')
+  activeLocale = 'zh'
+  localeRevision += 1
+  render(liveDraftSession, false)
+  await waitFor('浮窗切回中文', () => q('.uvf_chip')?.textContent === '修改中' && q('.uvf_frame')?.getAttribute('src') === ZH_SLIDE_UNIT_URL)
+}
 
 // ---- scenario 2: window controls / drag / bounded eight-way resize ----
 {
@@ -383,7 +440,7 @@ worktrees = [wt('draft')]
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('draft 审阅面板出现（会话结束后）', () => q('.uvf_panel') !== null)
 if (q('.uvf_win') !== null) throw new Error('no floating window for a draft worktree after session end')
-if (q('.uvf_panelFrame')?.getAttribute('src') !== DEFAULT_UNIT_URL) throw new Error('draft panel must embed the live worktree page at the changed unit')
+if (q('.uvf_panelFrame')?.getAttribute('src') !== ZH_DEFAULT_UNIT_URL) throw new Error('draft panel must embed the localized live worktree page at the changed unit')
 if ((q('.uvf_panelChip')?.textContent ?? '') !== '修改中') throw new Error('draft panel chip must match the Viewer status wording')
 if ((q('.uvf_hint')?.textContent ?? '').includes('提交确认') === false) throw new Error('draft panel must use the Viewer confirmation wording')
 {
@@ -392,8 +449,21 @@ if ((q('.uvf_hint')?.textContent ?? '').includes('提交确认') === false) thro
     throw new Error('draft panel actions wrong: ' + kinds.join(','))
   }
 }
+{
+  const frame = q('.uvf_panelFrame')
+  const reviewSession = sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false)
+  activeLocale = 'en'
+  localeRevision += 1
+  render(reviewSession, false)
+  await waitFor('审阅面板切换英文', () => (q('.uvf_panelTitle')?.textContent ?? '').includes('Modification in progress') && q('.uvf_panelFrame')?.getAttribute('src') === EN_DEFAULT_UNIT_URL)
+  if (q('.uvf_panelFrame') !== frame) throw new Error('locale switch must preserve the review iframe element')
+  activeLocale = 'zh'
+  localeRevision += 1
+  render(reviewSession, false)
+  await waitFor('审阅面板切回中文', () => (q('.uvf_panelTitle')?.textContent ?? '').includes('正在进行的修改') && q('.uvf_panelFrame')?.getAttribute('src') === ZH_DEFAULT_UNIT_URL)
+}
 q('.uvf_action[data-kind=ready]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
-await waitFor('标记 ready 后切到合并预览', () => q('.uvf_panelFrame')?.getAttribute('src') === DEFAULT_MERGE_URL)
+await waitFor('标记 ready 后切到合并预览', () => q('.uvf_panelFrame')?.getAttribute('src') === ZH_DEFAULT_MERGE_URL)
 if ((q('.uvf_panelChip')?.textContent ?? '') !== '待确认') throw new Error('panel chip must switch to 待确认')
 if (q('.uvf_action[data-kind=merge]') === null) throw new Error('merge action must appear once marked ready')
 await waitFor('ready 操作恢复可用', () => q('.uvf_action[data-kind=merge]')?.disabled === false)
@@ -402,7 +472,7 @@ await waitFor('ready 操作恢复可用', () => q('.uvf_action[data-kind=merge]'
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('会话结束后浮窗关闭', () => q('.uvf_win') === null)
 await waitFor('合并预览面板出现', () => q('.uvf_panel') !== null)
-if (q('.uvf_panelFrame')?.getAttribute('src') !== DEFAULT_MERGE_URL) throw new Error('panel iframe must embed the mergePreview page at the changed unit')
+if (q('.uvf_panelFrame')?.getAttribute('src') !== ZH_DEFAULT_MERGE_URL) throw new Error('panel iframe must embed the localized mergePreview page at the changed unit')
 if ((q('.uvf_panelTitle')?.textContent ?? '').includes('v3smoke') === false) throw new Error('panel must name the ready worktree')
 if ((q('.uvf_panelChip')?.textContent ?? '') !== '待确认') throw new Error('panel chip must say 待确认')
 {

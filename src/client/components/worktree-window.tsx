@@ -1,8 +1,10 @@
 import * as React from 'react'
-import type { WorktreeState } from '../../shared/wire/state.ts'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type { ActiveWorktreeState } from '../../shared/wire/state.ts'
 import { startGateway } from '../api/univer-api.ts'
 import { basename } from '../conversation/univer-target-definition.ts'
-import type { Translate } from '../dsh.ts'
+import { localizeViewerUrl } from '../viewer-locale.ts'
+import type { ViewerLocale } from '../viewer-locale.ts'
 import { UnitChips, unitViewerUrl } from './unit-chips.tsx'
 
 interface ViewportSize { readonly width: number; readonly height: number }
@@ -20,9 +22,10 @@ const CASCADE_OFFSET = 24
 
 interface WorktreeWindowProps {
   readonly file: string
-  readonly worktree: WorktreeState
+  readonly worktree: ActiveWorktreeState
   readonly stackIndex: number
-  readonly t: Translate
+  readonly t: TranslateNS<'univer'>
+  readonly viewerLocale: ViewerLocale
   readonly onDismiss: () => void
 }
 
@@ -47,7 +50,8 @@ export function WorktreeWindow(props: WorktreeWindowProps): React.ReactElement {
 
   const units = props.worktree.units
   const selectedUnit = selected !== undefined && units.some((unit) => unit.unitId === selected) ? selected : units[0]?.unitId
-  const url = unitViewerUrl(props.worktree.worktreeUrl, units, selectedUnit, 'worktree')
+  const target = unitViewerUrl(props.worktree.worktreeUrl, units, selectedUnit, 'worktree')
+  const url = target === undefined ? undefined : localizeViewerUrl(target, props.viewerLocale)
   const title = props.worktree.name || props.worktree.worktreeId
 
   const beginPointerSession = (event: React.PointerEvent<HTMLElement>, kind: Interaction): void => {

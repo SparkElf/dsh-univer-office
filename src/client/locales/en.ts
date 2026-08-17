@@ -1,5 +1,7 @@
+import type { UniverLocaleKey } from './zh.ts'
+
 /** English UI strings. */
-export const en: Record<string, string> = {
+export const en = {
   title: 'Univer Preview', expand: 'Expand preview', collapse: 'Collapse preview', refresh: 'Refresh',
   'gateway.running': 'Univer Gateway running', 'gateway.stopped': 'Univer Gateway stopped — click to start',
   'gateway.starting': 'Starting Univer Gateway…', 'gateway.checking': 'Checking Univer Gateway…', 'gateway.failed': 'Univer Gateway unavailable — click to retry',
@@ -9,4 +11,4 @@ export const en: Record<string, string> = {
   'dock.gatewayDown': 'Univer Gateway is not running; live preview is unavailable', 'dock.startGateway': 'Start Gateway',
   'dock.mergeTitle': 'Merge preview', 'dock.reviewTitle': 'Modification in progress', 'dock.markReady': 'Submit for confirmation',
   'dock.notReady': 'Submit this modification for confirmation before merging or discarding it', 'dock.merge': 'Merge into current version', 'dock.discard': 'Discard',
-}
+} satisfies Record<UniverLocaleKey, string>

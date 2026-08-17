@@ -46,6 +46,7 @@ if (target === 'all' || target === 'lib') {
   await rm('lib/types', { recursive: true, force: true })
   await mkdir('lib', { recursive: true })
   await run(process.execPath, ['node_modules/typescript/bin/tsc', '--project', 'tsconfig.json'])
+  await run(process.execPath, ['node_modules/typescript/bin/tsc', '--project', 'tsconfig.client.json'])
 
   await build({
     entryPoints: ['src/host/index.ts'],

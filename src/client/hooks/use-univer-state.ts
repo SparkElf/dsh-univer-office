@@ -1,9 +1,10 @@
 import * as React from 'react'
+import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { FileState } from '../../shared/wire/state.ts'
 import { getFileState, getUniverStatus, startGateway } from '../api/univer-api.ts'
 
 /** Poll collaboration state for a stable list of files. */
-export function useUniverStates(files: readonly string[], sessionId: string, intervalMs = 900): {
+export function useUniverStates(files: readonly string[], sessionId: SessionId, intervalMs = 900): {
   readonly states: Readonly<Record<string, FileState>>
   readonly applyState: (state: FileState) => void
 } {

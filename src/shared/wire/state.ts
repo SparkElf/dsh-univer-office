@@ -26,6 +26,9 @@ export interface WorktreeState {
   readonly mergeUrl?: string
 }
 
+/** Worktree state rendered while it can still be reviewed or edited. */
+export type ActiveWorktreeState = WorktreeState & { readonly status: 'draft' | 'ready' }
+
 /** Current collaboration state for one `.univer` file. */
 export interface FileState {
   readonly ok: true

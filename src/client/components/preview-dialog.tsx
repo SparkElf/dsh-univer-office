@@ -1,9 +1,9 @@
 import * as React from 'react'
-import type { Translate } from '../dsh.ts'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { basename } from '../conversation/univer-target-definition.ts'
 
 /** Fullscreen in-app Viewer dialog. */
-export function PreviewDialog(props: { readonly file: string; readonly worktreeId: string | null; readonly url: string; readonly t: Translate; readonly onClose: () => void }): React.ReactElement {
+export function PreviewDialog(props: { readonly file: string; readonly worktreeId: string | null; readonly url: string; readonly t: TranslateNS<'univer'>; readonly onClose: () => void }): React.ReactElement {
   const [frameKey, setFrameKey] = React.useState(0)
   const closeRef = React.useRef<HTMLButtonElement>(null)
   React.useEffect(() => {

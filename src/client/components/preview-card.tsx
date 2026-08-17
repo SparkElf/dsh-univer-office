@@ -1,13 +1,18 @@
 import * as React from 'react'
+import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { getFileState } from '../api/univer-api.ts'
-import type { Translate } from '../dsh.ts'
-import type { UniverTarget } from '../conversation/univer-target-definition.ts'
+import type { UniverPreviewMatch } from '../conversation/univer-target-definition.ts'
 import { basename } from '../conversation/univer-target-definition.ts'
 import { useGatewayStatus } from '../hooks/use-univer-state.ts'
+import { localizeViewerUrl } from '../viewer-locale.ts'
+import type { ViewerLocaleInjected } from '../viewer-locale.ts'
 import { GridIcon, PreviewDialog } from './preview-dialog.tsx'
 
+/** Props composed by the DSH turn-tail slot. */
+export type PreviewCardProps = PropsRuntime<'conversation.chat.turnTail'> & PropsLocale<'univer'> & ViewerLocaleInjected & { readonly matched: UniverPreviewMatch }
+
 /** Turn-tail preview card for files touched by Univer tools. */
-export function PreviewCard(props: { readonly sessionId: string; readonly matched: { readonly targets: readonly UniverTarget[] }; readonly t: Translate }): React.ReactElement {
+export function PreviewCard(props: PreviewCardProps): React.ReactElement {
   const targets = props.matched.targets
   const [selected, setSelected] = React.useState(0)
   const [open, setOpen] = React.useState(false)
@@ -51,6 +56,6 @@ export function PreviewCard(props: { readonly sessionId: string; readonly matche
       </div>
       <div className="unvT_path">{active.file}</div>
     </div>
-    {open && url !== null ? <PreviewDialog file={active.file} worktreeId={active.worktreeId} url={url} t={props.t} onClose={() => setOpen(false)} /> : null}
+    {open && url !== null ? <PreviewDialog file={active.file} worktreeId={active.worktreeId} url={localizeViewerUrl(url, props.getViewerLocale())} t={props.t} onClose={() => setOpen(false)} /> : null}
   </div>
 }
