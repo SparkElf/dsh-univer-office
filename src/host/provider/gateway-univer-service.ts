@@ -127,6 +127,7 @@ export class GatewayUniverService extends UniverService {
     const entries = await Promise.all(records.map(async (record): Promise<WorktreeState> => {
       const base = `${gateway}/?file=${encodeURIComponent(fileKeyOf(file))}`
       const worktree = encodeURIComponent(record.worktreeId)
+      const openUrl = `${base}&worktree=${worktree}`
       const worktreeUrl = `${base}&worktree=${worktree}&mode=embedded&scope=worktree`
       const mergeUrl = `${base}&worktree=${worktree}&mode=embedded&scope=mergePreview`
       const changedUnits = record.status === 'draft' || record.status === 'ready'
@@ -143,7 +144,7 @@ export class GatewayUniverService extends UniverService {
         status: record.status,
         units,
         ...record.status === 'draft' || record.status === 'ready'
-          ? { worktreeUrl }
+          ? { openUrl, worktreeUrl }
           : {},
         ...record.status === 'ready'
           ? { mergeUrl }

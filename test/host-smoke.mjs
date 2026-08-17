@@ -24,6 +24,7 @@ const state = {
     name: 'host smoke',
     status: 'ready',
     units: [{ unitId: 'unit-1', name: 'Sheet 1', type: 'sheet', kind: 'modified' }],
+    openUrl: 'http://127.0.0.1:9123/?file=KEY&worktree=wt-host-smoke',
     worktreeUrl: 'http://127.0.0.1:9123/?file=KEY&worktree=wt-host-smoke&scope=worktree',
     mergeUrl: 'http://127.0.0.1:9123/?file=KEY&worktree=wt-host-smoke&scope=mergePreview',
   }],
@@ -63,7 +64,7 @@ try {
   }
 
   const fileState = await json(`/univer-api/state?file=${encodeURIComponent(FILE)}&sessionId=${SESSION}`)
-  if (fileState.response.status !== 200 || fileState.body.viewerUrl !== state.viewerUrl || fileState.body.worktrees?.[0]?.status !== 'ready') {
+  if (fileState.response.status !== 200 || fileState.body.viewerUrl !== state.viewerUrl || fileState.body.worktrees?.[0]?.openUrl !== state.worktrees[0].openUrl) {
     throw new Error(`state route failed: ${JSON.stringify(fileState.body)}`)
   }
   if (calls[1]?.[1]?.file !== REAL_FILE) throw new Error('state route did not pass the validated file')

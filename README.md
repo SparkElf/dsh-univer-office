@@ -22,7 +22,7 @@ Create and preview Univer office files (sheets, docs, slides, bases) directly in
 └──────────────────────────────┘
 
 ┌────────────────────────────────────────┐
-│ 🧾 Merge review「agent-draft」 [awaiting] ▾ │  ← session-end merge panel
+│ 🧾 Merge preview「agent-draft」 [Ready] ▾ │  ← session-end merge panel
 │ ┌────────────────────────────────────┐ │
 │ │   merge preview page (embedded)    │ │
 │ └────────────────────────────────────┘ │
@@ -35,7 +35,7 @@ Create and preview Univer office files (sheets, docs, slides, bases) directly in
 - **In-app fullscreen viewer** — click the card to open the sheet in an in-app iframe; close with ✕ / mask / Esc.
 - **Live floating worktree window** — when the agent creates or updates a worktree, a small window pops up in the **top-right corner** embedding the live read-only worktree page. Edits appear in real time. When one worktree touches several units (e.g. a sheet plus a deck), the window and the review panel show **unit chips** that list ONLY changed units (＋ added / ✎ modified / － deleted / ⚠ conflict) with status icons, defaulting to the first one.
 - **Window interactions** — drag the dark bar to move; click the bar (without dragging) to enlarge; `−` folds down to the bare title bar, `⤢` maximizes, **drag the bottom-right corner to resize**, `✕` dismisses until the worktree status changes.
-- **Ready + session end → close, then merge panel** — once the session goes idle, every **non-terminal** worktree moves into the review dock below the conversation: `ready` shows the merge review page (`scope=mergePreview`) plus Reopen / Discard / Merge actions; **`draft` shows up too**, with the live worktree page plus Mark-ready / Discard actions (so a worktree the agent forgot to mark ready is still reviewable). While the session is still running, non-terminal worktrees stay as top-right windows. **Merged or discarded worktrees (terminal states) show nothing — no window, no panel.**
+- **Ready + session end → close, then merge panel** — once the session goes idle, every **non-terminal** worktree moves into the review dock below the conversation: `ready` shows the merge preview (`scope=mergePreview`) plus Resume editing / Discard / Merge into current version actions; **`draft` shows up too**, with the live worktree page plus Submit for confirmation / Discard actions (so a modification the agent forgot to submit is still reviewable). While the session is still running, non-terminal worktrees stay as top-right windows. **Merged or discarded worktrees (terminal states) show nothing — no window, no panel.**
 - **Bundled Gateway management** — the plugin ships the collaboration Gateway and Viewer; green dot = running, yellow dot = stopped, click to start the plugin-owned Gateway.
 - **Multi-session** — each session shows its own turn's cards, windows, and merge panels.
 - **Bilingual UI** — the card follows the app locale (zh / en).
@@ -92,7 +92,7 @@ After any install: **refresh DeepSeek Harness (Cmd+R / Ctrl+R)**.
 2. When the turn ends, a preview card appears at its tail
 3. Click the card → in-app fullscreen preview
 4. Create a worktree → the floating live window appears in the corner; watch the agent's edits in real time
-5. Mark the worktree ready in the review panel → when the session ends, the live window closes and the merge review panel embeds below the conversation
+5. Submit the modification for confirmation in the review panel → when the session ends, the live window closes and the merge preview embeds below the conversation
 6. If the bundled Gateway is not running, the card shows a yellow dot; click it to start the Gateway
 
 ## Uninstall

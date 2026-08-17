@@ -3,5 +3,7 @@
 # are intentionally versioned for DSH loading and release installs.
 dist/
 node_modules/
+!vendor/unit-content/artifacts/node_modules/
+!vendor/unit-content/artifacts/node_modules/**
 *.tgz
 *.zip

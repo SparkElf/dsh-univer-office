@@ -20,8 +20,8 @@ export function PreviewCard(props: { readonly sessionId: string; readonly matche
     let mounted = true
     void getFileState(active.file, props.sessionId).then((state) => {
       if (!mounted) return
-      const worktreeUrl = active.worktreeId === null ? null : state.worktrees.find((entry) => entry.worktreeId === active.worktreeId)?.worktreeUrl
-      setUrl(worktreeUrl ?? state.viewerUrl)
+      const openUrl = active.worktreeId === null ? null : state.worktrees.find((entry) => entry.worktreeId === active.worktreeId)?.openUrl
+      setUrl(openUrl ?? state.viewerUrl)
     }).catch(() => {
       if (mounted) setUrl(null)
     })

@@ -17,6 +17,8 @@ export interface WorktreeState {
     readonly name: string;
     readonly status: WorktreeStatus;
     readonly units: readonly ChangedUnit[];
+    /** Standalone Viewer target used by the turn-tail preview. */
+    readonly openUrl?: string;
     readonly worktreeUrl?: string;
     readonly mergeUrl?: string;
 }

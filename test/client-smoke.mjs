@@ -23,6 +23,7 @@ const { JSDOM } = repoRequire('jsdom')
 // ---- fake loopback API (node half's /univer-api) ----
 const DEMO_FILE = '/Users/otime/dev/learn/dsh-learn/.scratch-univer/demo.univer'
 const WORKTREE = 'wt-msvqmweb-47hcdg'
+const OPEN_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg'
 const VIEW_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg&mode=embedded&scope=worktree'
 const MERGE_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg&mode=embedded&scope=mergePreview'
 const UNITS = [
@@ -39,7 +40,7 @@ const wt = (status, worktreeId = WORKTREE) => ({
   name: worktreeId === WORKTREE ? 'v3smoke' : 'other',
   status,
   units: status === 'draft' || status === 'ready' ? UNITS : [],
-  ...(status === 'draft' || status === 'ready' ? { worktreeUrl: VIEW_URL } : {}),
+  ...(status === 'draft' || status === 'ready' ? { openUrl: OPEN_URL, worktreeUrl: VIEW_URL } : {}),
   ...(status === 'ready' ? { mergeUrl: MERGE_URL } : {}),
 })
 const currentState = () => ({
@@ -218,6 +219,22 @@ async function waitFor(description, predicate, timeoutMs = 5000) {
 const q = (selector) => document.querySelector(selector)
 const qa = (selector) => Array.from(document.querySelectorAll(selector))
 
+// ---- turn-tail preview: full standalone Viewer, not embedded mode ----
+const tailRootEl = document.createElement('div')
+document.body.appendChild(tailRootEl)
+const tailRoot = createRoot(tailRootEl)
+worktrees = [wt('draft')]
+tailRoot.render(React.createElement(tailEntry.Component, {
+  matched: { targets: [{ file: DEMO_FILE, worktreeId: WORKTREE }] },
+  sessionId: 'test-session-id',
+  t,
+}))
+await waitFor('回合尾部预览卡片', () => q('.unvT_expandBtn') !== null)
+q('.unvT_expandBtn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+await waitFor('完整 Viewer 页面', () => q('.unvT_frame')?.getAttribute('src') === OPEN_URL)
+tailRoot.unmount()
+tailRootEl.remove()
+
 // ---- scenario 0: no targets → no UI ----
 worktrees = [wt('draft')]
 render(sessionWithTargets([], false))
@@ -238,7 +255,7 @@ if (q('.uvf_frame')?.getAttribute('src') !== DEFAULT_UNIT_URL) throw new Error('
 {
   const chips = qa('.uvf_unit')
   if (chips.length !== 3) throw new Error('unit chips missing: ' + chips.length)
-  if ((chips[2].textContent ?? '').includes('删除') === false || (chips[2].textContent ?? '').includes('u-gone')) {
+  if ((chips[2].textContent ?? '').includes('删') === false || (chips[2].textContent ?? '').includes('u-gone')) {
     throw new Error('nameless deleted chip must show the kind label, not the unitId: ' + chips[2].textContent)
   }
   if (chips[0].className.includes('uvf_unit_on') === false) throw new Error('default chip must be the first changed unit')
@@ -337,8 +354,8 @@ render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('draft 审阅面板出现（会话结束后）', () => q('.uvf_panel') !== null)
 if (q('.uvf_win') !== null) throw new Error('no floating window for a draft worktree after session end')
 if (q('.uvf_panelFrame')?.getAttribute('src') !== DEFAULT_UNIT_URL) throw new Error('draft panel must embed the live worktree page at the changed unit')
-if ((q('.uvf_panelChip')?.textContent ?? '') !== '进行中') throw new Error('draft panel chip must say 进行中')
-if ((q('.uvf_hint')?.textContent ?? '').includes('尚未确认') === false) throw new Error('draft panel must explain the missing confirmation')
+if ((q('.uvf_panelChip')?.textContent ?? '') !== '修改中') throw new Error('draft panel chip must match the Viewer status wording')
+if ((q('.uvf_hint')?.textContent ?? '').includes('提交确认') === false) throw new Error('draft panel must use the Viewer confirmation wording')
 {
   const kinds = qa('.uvf_action').map((el) => el.getAttribute('data-kind'))
   if (kinds.includes('ready') === false || kinds.includes('discard') === false || kinds.includes('merge') === true) {
@@ -353,7 +370,7 @@ if (q('.uvf_action[data-kind=merge]') === null) throw new Error('merge action mu
 // ---- scenario 4: ready + session end → window closes, merge panel embeds ----
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('会话结束后浮窗关闭', () => q('.uvf_win') === null)
-await waitFor('合并审阅面板出现', () => q('.uvf_panel') !== null)
+await waitFor('合并预览面板出现', () => q('.uvf_panel') !== null)
 if (q('.uvf_panelFrame')?.getAttribute('src') !== DEFAULT_MERGE_URL) throw new Error('panel iframe must embed the mergePreview page at the changed unit')
 if ((q('.uvf_panelTitle')?.textContent ?? '').includes('v3smoke') === false) throw new Error('panel must name the ready worktree')
 if ((q('.uvf_panelChip')?.textContent ?? '') !== '待确认') throw new Error('panel chip must say 待确认')
@@ -370,7 +387,7 @@ render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('ready 面板出现（reopen 场景）', () => q('.uvf_action[data-kind=reopen]') !== null)
 q('.uvf_action[data-kind=reopen]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
 await waitFor('reopen 请求发出', () => actionLog.some((entry) => entry.action === 'reopen'))
-await waitFor('reopen 后回到 draft 审阅面板', () => q('.uvf_panelChip')?.textContent === '进行中')
+await waitFor('恢复编辑后回到 draft 审阅面板', () => q('.uvf_panelChip')?.textContent === '修改中')
 if (q('.uvf_win') !== null) throw new Error('no floating window for a draft worktree after session end')
 if (q('.uvf_action[data-kind=ready]') === null) throw new Error('draft panel must offer mark-ready after reopen')
 

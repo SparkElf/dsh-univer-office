@@ -29,7 +29,7 @@
 - worktree 创建或更新后显示实时浮动窗口；
 - 一个 worktree 改动多个 unit 时，只列出有改动的 unit 并允许切换；
 - 会话结束后为 `draft` 或 `ready` worktree 显示嵌入式审阅面板；
-- 用户可执行标记 ready、重新打开、丢弃和合并操作；
+- 用户可执行提交确认、恢复编辑、丢弃和合入当前版本操作；
 - worktree 进入 `merged` 或 `discarded` 终态后不再显示浮窗或审阅面板；
 - 插件按需启动并管理内置 Gateway 和 Viewer；
 - 多个 DSH 会话的预览目标与审阅状态相互隔离；
@@ -234,7 +234,7 @@ webServer Consumer 使用 DSH `webServer` 的 prefix route 注册 `/univer-api`�
 
 路径是浏览器协议，不等同于 Service 方法。Router 负责 HTTP method、请求体大小、JSON 和字段校验，route handler 只把已验证请求映射为服务调用。错误返回稳定的错误 code 和可显示消息，不把堆栈、绝对内部资源路径或子进程输出原样暴露给浏览器。
 
-worktree 审阅操作必须绑定当前 DSH 会话及其 workspace scope，不能只凭浏览器提交的绝对路径授权。
+worktree 修改审阅操作必须绑定当前 DSH 会话及其 workspace scope，不能只凭浏览器提交的绝对路径授权。
 
 ## 9. Tools Consumer
 
@@ -256,6 +256,8 @@ Client 只解析结构化 `univer_*` 工具事件，不从 bash 命令或自由�
 
 Client 是状态投影，不拥有 worktree 真相。预览目标来自可回放的会话事件；实时状态来自 Host API；Viewer iframe 负责文档内容的实时展示。
 
+回合尾部 PreviewCard 打开完整的 standalone Viewer 页面，与 `univer-cli open` 的页面模式一致；实时 worktree 浮窗和会话结束审阅面板继续使用 `mode=embedded`，分别绑定 `worktree` 与 `mergePreview` scope。
+
 Client 必须满足：
 
 - 会话 ID 与 workspace scope 是所有状态查询的组成部分；
@@ -276,7 +278,7 @@ Client 必须满足：
 2. `univer_execute` 只写入显式 draft worktree，并由 Gateway revision 确认提交；
 3. `univer_inspect` 与 `univer_export` 可读取 trunk 或显式 worktree；
 4. Client 只从结构化工具事件恢复预览目标；
-5. 全新环境仅安装本插件即可完成创建、修改、检查、导出、预览和 worktree 审阅。
+5. 全新环境仅安装本插件即可完成创建、修改、检查、导出、预览和 worktree 修改审阅。
 
 ## 12. 构建、发布与 vendoring
 
