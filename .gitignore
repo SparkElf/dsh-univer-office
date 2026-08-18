@@ -2,7 +2,7 @@
 # lib/, the Viewer, the worker, and the Gateway are built from src/ over the SDK:
 #   pnpm run build
 dist/
-lib/
+/lib/
 node_modules/
 /artifacts/
 *.tgz
