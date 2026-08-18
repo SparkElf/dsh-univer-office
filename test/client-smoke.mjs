@@ -20,6 +20,7 @@ const { JSDOM } = repoRequire('jsdom')
 
 // ---- fake loopback API (node half's /univer-api) ----
 const DEMO_FILE = join(tmpdir(), 'dsh-univer-client-smoke', 'demo.univer')
+const SECOND_FILE = join(tmpdir(), 'dsh-univer-client-smoke', 'second.univer')
 const WORKTREE = 'wt-msvqmweb-47hcdg'
 const OPEN_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg'
 const VIEW_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg&mode=embedded&scope=worktree'
@@ -73,7 +74,7 @@ const server = createServer(async (req, res) => {
       return
     }
     stateRequests.push(file)
-    if (file !== DEMO_FILE && file !== REL_DEMO_FILE) {
+    if (file !== DEMO_FILE && file !== REL_DEMO_FILE && file !== SECOND_FILE) {
       res.writeHead(404).end()
       return
     }
@@ -268,9 +269,12 @@ const tailProps = {
   sessionId: 'test-session-id',
   t,
   getViewerLocale: tailInjected.getViewerLocale,
+  useSessions: (selector) => selector({ byId: { 'test-session-id': { cwd: SESSION_CWD } } }),
 }
 tailRoot.render(React.createElement(tailEntry.Component, tailProps))
 await waitFor('回合尾部预览卡片', () => q('.unvT_expandBtn') !== null)
+await waitFor('卡片显示 worktree 名称', () => q('.unvT_wt')?.textContent === 'v3smoke')
+if ((q('.unvT_title')?.textContent ?? '').includes(WORKTREE)) throw new Error('preview card must not expose the raw worktreeId')
 q('.unvT_expandBtn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
 await waitFor('中文完整 Viewer 页面', () => q('.unvT_frame')?.getAttribute('src') === ZH_OPEN_URL)
 const tailFrame = q('.unvT_frame')
@@ -284,6 +288,29 @@ activeLocale = 'zh'
 localeRevision += 1
 tailRoot.render(React.createElement(tailEntry.Component, tailProps))
 await waitFor('预览卡片切回中文', () => q('.unvT_frame')?.getAttribute('src') === ZH_OPEN_URL && q('.unvT_frame')?.getAttribute('title') === 'Univer 预览')
+
+// A relative tool-call path and the absolute tool-result path identify one file and one card.
+tailRoot.render(React.createElement(tailEntry.Component, {
+  ...tailProps,
+  matched: { targets: [
+    { file: 'work_班级成绩表/班级管理.univer', worktreeId: null },
+    { file: REL_DEMO_FILE, worktreeId: WORKTREE },
+  ] },
+}))
+await waitFor('相对路径和绝对路径去重为一张卡片', () => qa('.unvT_card').length === 1 && q('.unvT_path')?.textContent === REL_DEMO_FILE)
+if (q('.unvT_chip') !== null) throw new Error('file-switch chips must not exist in one-file-per-card UI')
+
+// Distinct files touched in one turn each receive their own card.
+tailRoot.render(React.createElement(tailEntry.Component, {
+  ...tailProps,
+  matched: { targets: [
+    { file: DEMO_FILE, worktreeId: WORKTREE },
+    { file: SECOND_FILE, worktreeId: null },
+  ] },
+}))
+await waitFor('同一回合的两个文件分别显示卡片', () => qa('.unvT_card').length === 2)
+const previewPaths = qa('.unvT_path').map((element) => element.textContent)
+if (previewPaths.join('|') !== `${DEMO_FILE}|${SECOND_FILE}`) throw new Error('preview cards must preserve file order: ' + previewPaths.join(','))
 tailRoot.unmount()
 tailRootEl.remove()
 

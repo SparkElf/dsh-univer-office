@@ -4,7 +4,7 @@
 
 [English](README.md) · [中文](README.zh-CN.md)
 
-Create and preview Univer office files (sheets, docs, slides, bases) directly inside DeepSeek Harness. After a turn uses a structured `univer_*` tool, a preview card appears at the turn tail; click it to expand fullscreen in-app. Worktree work gets a live window, and session-end review stays inside the conversation.
+Create and preview Univer office files (sheets, docs, slides, bases) directly inside DeepSeek Harness. After a turn uses a structured `univer_*` tool, one preview card per touched `.univer` file appears at the turn tail; click a card to expand it fullscreen in-app. Worktree work gets a live window, and session-end review stays inside the conversation.
 
 ```
 ┌────────────────────────────────────────┐
@@ -31,7 +31,7 @@ Create and preview Univer office files (sheets, docs, slides, bases) directly in
 
 ## Features
 
-- **Inline preview cards** — a card appears at the end of turns that use the structured `univer_*` tools.
+- **Inline preview cards** — each `.univer` file touched by structured `univer_*` tools gets its own card at the end of the turn.
 - **In-app fullscreen viewer** — click the card to open the sheet in an in-app iframe; close with ✕ / mask / Esc.
 - **Live floating worktree window** — when the agent creates or updates a worktree, a small window pops up in the **top-right corner** embedding the live read-only worktree page. Edits appear in real time. When one worktree touches several units (e.g. a sheet plus a deck), the window and the review panel show **unit chips** that list ONLY changed units (＋ added / ✎ modified / － deleted / ⚠ conflict) with status icons, defaulting to the first one.
 - **Window interactions** — drag the title bar to move and double-click it to maximize; use the dedicated fold, maximize/restore, and close controls; drag any edge or corner to resize. Folding keeps the loaded Viewer mounted for instant restoration. Movement, resizing, and viewport changes keep the full window reachable on screen.

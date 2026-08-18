@@ -58,6 +58,20 @@ export function selectUniverPreview(owner: TurnTailOwnerProps): UniverPreviewMat
   return { targets: data.targets }
 }
 
+/** Resolve and deduplicate the files rendered as turn-tail preview cards. */
+export function previewTargets(targets: readonly UniverTarget[], cwd?: string): UniverTarget[] {
+  const unique = new Map<string, UniverTarget>()
+  for (const target of targets) {
+    const file = resolveTargetFile(target.file, cwd)
+    const previous = unique.get(file)
+    unique.set(file, {
+      file,
+      worktreeId: target.worktreeId ?? previous?.worktreeId ?? null,
+    })
+  }
+  return [...unique.values()]
+}
+
 /** Recover all unique target files and mentioned worktrees from a session. */
 export function targetsOfSession(session: ConversationSnapshot, cwd?: string): { readonly files: string[]; readonly worktreeIds: Set<string> } {
   const files: string[] = []
