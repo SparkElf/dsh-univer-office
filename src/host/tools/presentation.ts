@@ -30,12 +30,12 @@ export const apiOutput = {
       result: { type: 'json' as const, required: true },
     },
   },
-  render: (_args: unknown, value: UniverApiResult) => [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }],
+  render: (_args: unknown, value: UniverApiResult) => [{ type: 'text' as const, text: JSON.stringify(value) }],
 } as const
 
 /** Pure text projection of a structured Univer operation result. */
 export function renderOperationResult(value: UniverOperationResult): string {
-  return JSON.stringify(value, null, 2)
+  return JSON.stringify(value)
 }
 
 /** Pure generic-card title for one Univer operation. */
