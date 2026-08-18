@@ -29,12 +29,15 @@
 - 在 DSH 内以 Viewer 全屏预览文件；
 - worktree 创建或更新后显示实时浮动窗口；
 - 一个 worktree 改动多个 unit 时，只列出有改动的 unit 并允许切换；
-- 会话结束后为 `draft` 或 `ready` worktree 显示嵌入式审阅面板；
-- 用户可在审阅面板执行提交确认、丢弃和合入当前版本操作；
-- worktree 进入 `merged` 或 `discarded` 终态后不再显示浮窗或审阅面板；
+- 会话结束后在最近一次操作各 worktree 的回合末尾为 `draft` 或 `ready` worktree 显示嵌入式审阅面板；
+- 后续回合再次操作同一 worktree 时，旧回合保留同款审阅 header 作为历史标记，不回退到文件预览卡片；
+- 审阅卡片使用紧凑 header：首行显示 Univer 文件名和右侧的 worktree 名称，次行只显示完整文件路径，状态、折叠和全屏控制位于右侧；桌面端不同生命周期的展开卡片默认总高度约 650px，内嵌完整页面默认折叠左侧边栏，卡片折叠保留已加载页面，Esc 退出全屏；
+- draft 审阅卡片可执行提交确认和丢弃；ready 状态的丢弃与合入当前版本只使用完整 Univer 页面内置操作；
+- worktree 进入 `merged` 或 `discarded` 终态后不再显示浮窗或修改操作，但保留审阅卡片并在完整页面中显示主线；
 - 插件按需启动并管理内置 Gateway 和 Viewer；
 - 多个 DSH 会话的预览目标与审阅状态相互隔离；
 - 中英文界面；
+- Univer 文件尚无 Unit 时，Viewer 使用现有空状态布局并显示“空文件”；
 - 模型可创建空 `.univer` 文件、管理 worktree 与 Unit、导入 Office 文件、查询 Univer API、修改、检查和导出内容；
 - 模型可对 Slide 执行不输出图片的真实布局检查，并把 workspace 内的 SVG 编译并应用到显式 Slide 页面；
 - `ready` 与 `reopen` 属于模型工作流，`merge` 与 `discard` 只在用户明确要求且 DSH 审批通过后执行；
@@ -313,7 +316,7 @@ Client 必须满足：
 - 同一个文件/worktree 的浮窗状态可去重，但不能跨会话泄漏；
 - mutation 期间禁用重复操作，完成后重新获取 Host 状态；
 - Viewer URL 的文件、worktree、unit、mode 与 scope 参数视为不透明值；Client 只能设置不改变资源身份和授权范围的展示参数；
-- 终态 worktree 不渲染；
+- 终态 worktree 在原回合末尾保留审阅卡片，移除修改操作并显示主线完整页面；
 - UI 文案来自 locale 模块。
 
 ## 11. CLI 移除决策

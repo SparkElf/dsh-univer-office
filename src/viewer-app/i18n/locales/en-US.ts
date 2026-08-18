@@ -124,7 +124,7 @@ export const EN_US_MESSAGES = {
     daysAgo: (n: number): string => `${n} d ago`
   },
   content: {
-    emptyTitle: "No file open",
+    emptyTitle: "Empty file",
     emptyHint:
       "Pick a file from the sidebar to view it, or wait for the AI assistant's changes to land for review."
   },

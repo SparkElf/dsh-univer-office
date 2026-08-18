@@ -25,9 +25,16 @@ const WORKTREE = 'wt-msvqmweb-47hcdg'
 const OPEN_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg'
 const VIEW_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg&mode=embedded&scope=worktree'
 const MERGE_URL = 'http://127.0.0.1:9123/?file=KEY&worktree=wt-msvqmweb-47hcdg&mode=embedded&scope=mergePreview'
+const TRUNK_URL = 'http://127.0.0.1:9123/?file=KEY'
 const withLang = (url, lang) => {
   const target = new URL(url)
   target.searchParams.set('lang', lang)
+  return target.toString()
+}
+const asReviewPage = (url) => {
+  const target = new URL(url)
+  target.searchParams.delete('mode')
+  target.searchParams.set('sidebar', 'collapsed')
   return target.toString()
 }
 const UNITS = [
@@ -45,6 +52,10 @@ const EN_DEFAULT_UNIT_URL = withLang(DEFAULT_UNIT_URL, 'en-US')
 const ZH_SLIDE_UNIT_URL = withLang(SLIDE_UNIT_URL, 'zh-CN')
 const EN_SLIDE_UNIT_URL = withLang(SLIDE_UNIT_URL, 'en-US')
 const ZH_DEFAULT_MERGE_URL = withLang(DEFAULT_MERGE_URL, 'zh-CN')
+const ZH_FULL_DEFAULT_UNIT_URL = withLang(asReviewPage(DEFAULT_UNIT_URL), 'zh-CN')
+const EN_FULL_DEFAULT_UNIT_URL = withLang(asReviewPage(DEFAULT_UNIT_URL), 'en-US')
+const ZH_FULL_DEFAULT_MERGE_URL = withLang(asReviewPage(DEFAULT_MERGE_URL), 'zh-CN')
+const ZH_TRUNK_URL = withLang(asReviewPage(TRUNK_URL), 'zh-CN')
 let worktrees = []
 const wt = (status, worktreeId = WORKTREE) => ({
   worktreeId,
@@ -59,11 +70,9 @@ const currentState = () => ({
   file: DEMO_FILE,
   gateway: 'http://127.0.0.1:9123',
   gatewayRunning: true,
-  viewerUrl: 'http://127.0.0.1:9123/?file=KEY',
+  viewerUrl: TRUNK_URL,
   worktrees,
 })
-const actionLog = []
-let failMerge = false
 const stateRequests = []
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x')
@@ -90,16 +99,8 @@ const server = createServer(async (req, res) => {
       res.writeHead(400).end()
       return
     }
-    actionLog.push(body)
-    if (failMerge && body.action === 'merge') {
-      res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ ok: false, reason: '销售图表 与 trunk 冲突，无法合并', state: currentState() }))
-      return
-    }
-    const next = body.action === 'merge' ? 'merged' : body.action === 'reopen' ? 'draft' : body.action === 'ready' ? 'ready' : null
-    worktrees = worktrees
-      .filter((item) => body.action !== 'discard' || item.worktreeId !== body.worktreeId)
-      .map((item) => (item.worktreeId === body.worktreeId && next !== null ? wt(next) : item))
+    const next = body.action === 'merge' ? 'merged' : body.action === 'discard' ? 'discarded' : body.action === 'reopen' ? 'draft' : body.action === 'ready' ? 'ready' : null
+    worktrees = worktrees.map((item) => (item.worktreeId === body.worktreeId && next !== null ? wt(next) : item))
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ ok: true, action: body.action, worktreeId: body.worktreeId, state: currentState() }))
     return
@@ -190,7 +191,7 @@ const fakeCtx = {
 }
 pluginExports.apply(fakeCtx)
 const dockEntry = slotEntries.find((entry) => entry.options.name === 'conversation.input.dock' && entry.options.id === 'univer-dock')
-const tailEntry = slotEntries.find((entry) => entry.options.name === 'conversation.chat.turnTail')
+const tailEntry = slotEntries.find((entry) => entry.options.name === 'conversation.chat.turnTail' && entry.options.priority === -10)
 if (dockEntry === undefined) throw new Error('dock entry missing: ' + slotEntries.map((e) => e.options.name + '/' + e.options.id).join(','))
 if (tailEntry === undefined) throw new Error('turn-tail entry missing (existing preview card must stay registered)')
 if ('id' in tailEntry.options) throw new Error('chain entries must not declare a list-slot id')
@@ -200,6 +201,10 @@ if (dockEntry.options.locale !== 'univer' || tailEntry.options.locale !== 'unive
 const dockInjected = dockEntry.options.inject()
 const tailInjected = tailEntry.options.inject()
 if (typeof dockInjected.getViewerLocale !== 'function' || typeof tailInjected.getViewerLocale !== 'function') throw new Error('Viewer locale getter missing')
+{
+  const selected = tailEntry.options.select({ turn: { turn: 3, data: { get: () => ({ targets: [{ file: '/tmp/demo.univer', worktreeId: WORKTREE }] }) } } })
+  if (selected?.turn !== 3 || selected.targets.length !== 1) throw new Error('turn-tail selector must preserve the owning Turn for review placement')
+}
 
 // ---- definition pure-accumulator sanity (replay-safe, unchanged behavior) ----
 {
@@ -220,6 +225,12 @@ if (typeof dockInjected.getViewerLocale !== 'function' || typeof tailInjected.ge
   }
   state = def.update(mkContext(state), univerResult)
   if (state.targets.length !== 2 || state.targets[1].file !== '/x/proj/notes/result.univer' || state.targets[1].worktreeId !== 'wt-result-1234') throw new Error('typed tool-result extraction wrong: ' + JSON.stringify(state.targets))
+  const laterStatus = {
+    id: '7', role: 'update', location: { kind: 'turn', turn: 7 },
+    event: { type: 'tool/call', data: { turn: 7, name: 'univer_status', arguments: JSON.stringify({ file: '/x/proj/notes/result.univer' }) } },
+  }
+  state = def.update(mkContext(state), laterStatus)
+  if (state.targets[1].worktreeId !== 'wt-result-1234') throw new Error('a later file-only tool call must preserve the recovered worktreeId')
   const locationData = def.buildLocationData(mkContext(state), 'turn')
   if (locationData === null || locationData.key !== 'univerTarget' || locationData.value.targets.length !== 2) throw new Error('buildLocationData wrong')
 }
@@ -234,6 +245,9 @@ const sessionWithTargets = (targets, running) => ({
 const rootEl = document.createElement('div')
 document.body.appendChild(rootEl)
 const reactRoot = createRoot(rootEl)
+const reviewRootEl = document.createElement('div')
+document.body.appendChild(reviewRootEl)
+const reviewRoot = createRoot(reviewRootEl)
 const SESSION_CWD = join(tmpdir(), 'dsh-univer-client-smoke', 'workdir')
 const REL_DEMO_FILE = SESSION_CWD + '/work_班级成绩表/班级管理.univer'
 let scenario = 0
@@ -245,6 +259,15 @@ function render(session, remount = true) {
     t,
     getViewerLocale: dockInjected.getViewerLocale,
     sessionId: 'test-session-id',
+    useSessions: (selector) => selector({ byId: { 'test-session-id': { cwd: SESSION_CWD } } }),
+  }))
+  reviewRoot.render(React.createElement(tailEntry.Component, {
+    key: 's' + scenario,
+    matched: { turn: 3, targets: session.chat.timeline.turns.get(3)?.data.get('univerTarget')?.targets ?? [] },
+    t,
+    getViewerLocale: tailInjected.getViewerLocale,
+    sessionId: 'test-session-id',
+    useSession: (selector) => selector(session),
     useSessions: (selector) => selector({ byId: { 'test-session-id': { cwd: SESSION_CWD } } }),
   }))
 }
@@ -265,10 +288,11 @@ document.body.appendChild(tailRootEl)
 const tailRoot = createRoot(tailRootEl)
 worktrees = [wt('draft')]
 const tailProps = {
-  matched: { targets: [{ file: DEMO_FILE, worktreeId: WORKTREE }] },
+  matched: { turn: 3, targets: [{ file: DEMO_FILE, worktreeId: WORKTREE }] },
   sessionId: 'test-session-id',
   t,
   getViewerLocale: tailInjected.getViewerLocale,
+  useSession: (selector) => selector(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], true)),
   useSessions: (selector) => selector({ byId: { 'test-session-id': { cwd: SESSION_CWD } } }),
 }
 tailRoot.render(React.createElement(tailEntry.Component, tailProps))
@@ -292,7 +316,7 @@ await waitFor('预览卡片切回中文', () => q('.unvT_frame')?.getAttribute('
 // A relative tool-call path and the absolute tool-result path identify one file and one card.
 tailRoot.render(React.createElement(tailEntry.Component, {
   ...tailProps,
-  matched: { targets: [
+  matched: { turn: 3, targets: [
     { file: 'work_班级成绩表/班级管理.univer', worktreeId: null },
     { file: REL_DEMO_FILE, worktreeId: WORKTREE },
   ] },
@@ -303,7 +327,7 @@ if (q('.unvT_chip') !== null) throw new Error('file-switch chips must not exist 
 // Distinct files touched in one turn each receive their own card.
 tailRoot.render(React.createElement(tailEntry.Component, {
   ...tailProps,
-  matched: { targets: [
+  matched: { turn: 3, targets: [
     { file: DEMO_FILE, worktreeId: WORKTREE },
     { file: SECOND_FILE, worktreeId: null },
   ] },
@@ -311,6 +335,25 @@ tailRoot.render(React.createElement(tailEntry.Component, {
 await waitFor('同一回合的两个文件分别显示卡片', () => qa('.unvT_card').length === 2)
 const previewPaths = qa('.unvT_path').map((element) => element.textContent)
 if (previewPaths.join('|') !== `${DEMO_FILE}|${SECOND_FILE}`) throw new Error('preview cards must preserve file order: ' + previewPaths.join(','))
+
+// A worktree touched again in a newer turn leaves the current review-card header behind.
+const historicalSession = {
+  sessionId: 'test-session-id',
+  running: false,
+  chat: { timeline: { turns: new Map([
+    [3, { data: { get: (key) => (key === 'univerTarget' ? { targets: [{ file: DEMO_FILE, worktreeId: WORKTREE }] } : undefined) } }],
+    [4, { data: { get: (key) => (key === 'univerTarget' ? { targets: [{ file: DEMO_FILE, worktreeId: WORKTREE }] } : undefined) } }],
+  ]) } },
+}
+tailRoot.render(React.createElement(tailEntry.Component, {
+  ...tailProps,
+  matched: { turn: 3, targets: [{ file: DEMO_FILE, worktreeId: WORKTREE }] },
+  useSession: (selector) => selector(historicalSession),
+}))
+await waitFor('旧回合保留新版审阅 header', () => tailRootEl.querySelector('.uvf_panel_history') !== null)
+if (tailRootEl.querySelector('.unvT_card') !== null) throw new Error('an older worktree turn must not fall back to the legacy preview card')
+await waitFor('历史 header 显示 worktree 名称', () => tailRootEl.querySelector('.uvf_panelWorktree')?.textContent === 'v3smoke')
+if (tailRootEl.querySelector('.uvf_panelMeta')?.textContent !== DEMO_FILE) throw new Error('historical review header must show only the full file path')
 tailRoot.unmount()
 tailRootEl.remove()
 
@@ -323,8 +366,10 @@ await waitFor('no UI without targets', () => q('.uvf_root') === null && q('.uvf_
 worktrees = [wt('ready')]
 render(sessionWithTargets([{ file: 'work_班级成绩表/班级管理.univer', worktreeId: WORKTREE }], false))
 await waitFor('相对路径解析后出现审阅面板', () => q('.uvf_panel') !== null)
+if (!reviewRootEl.contains(q('.uvf_panel'))) throw new Error('review panel must render at the Turn tail, not in the input dock')
 if (stateRequests.at(-1) !== REL_DEMO_FILE) throw new Error('relative target must be polled as absolute: ' + stateRequests.join(', '))
-if ((q('.uvf_panelTitle')?.textContent ?? '').includes('v3smoke') === false) throw new Error('panel must name the worktree')
+if (q('.uvf_panelWorktree')?.textContent !== 'v3smoke') throw new Error('panel must place the worktree name beside the file name')
+if (q('.uvf_panelMeta')?.textContent !== REL_DEMO_FILE) throw new Error('panel metadata must show only the full file path')
 
 // ---- scenario 1: draft → floating window with live iframe ----
 worktrees = [wt('merged', 'wt-other-000001'), wt('draft')]
@@ -467,8 +512,11 @@ worktrees = [wt('draft')]
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('draft 审阅面板出现（会话结束后）', () => q('.uvf_panel') !== null)
 if (q('.uvf_win') !== null) throw new Error('no floating window for a draft worktree after session end')
-if (q('.uvf_panelFrame')?.getAttribute('src') !== ZH_DEFAULT_UNIT_URL) throw new Error('draft panel must embed the localized live worktree page at the changed unit')
+if (q('.uvf_panelFrame')?.getAttribute('src') !== ZH_FULL_DEFAULT_UNIT_URL) throw new Error('draft card must embed the full localized worktree page at the changed unit')
 if ((q('.uvf_panelChip')?.textContent ?? '') !== '修改中') throw new Error('draft panel chip must match the Viewer status wording')
+if (q('.uvf_panelPageKind') !== null) throw new Error('review header must not repeat the embedded page type')
+if (q('.uvf_panelWorktree')?.textContent !== 'v3smoke') throw new Error('draft panel must place the worktree name beside the file name')
+if (q('.uvf_panelMeta')?.textContent !== DEMO_FILE) throw new Error('review header metadata must contain only the full file path')
 if ((q('.uvf_hint')?.textContent ?? '').includes('提交确认') === false) throw new Error('draft panel must use the Viewer confirmation wording')
 {
   const kinds = qa('.uvf_action').map((el) => el.getAttribute('data-kind'))
@@ -476,82 +524,80 @@ if ((q('.uvf_hint')?.textContent ?? '').includes('提交确认') === false) thro
     throw new Error('draft panel actions wrong: ' + kinds.join(','))
   }
 }
+q('[data-panel-action=fullscreen]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+await waitFor('审阅面板进入全屏', () => q('.uvf_panel')?.className.includes('uvf_panel_fullscreen') === true)
+if (q('[data-panel-action=fullscreen]')?.getAttribute('aria-label') !== '退出全屏') throw new Error('fullscreen control must expose its current action')
+dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }))
+await waitFor('Escape 退出审阅全屏', () => q('.uvf_panel')?.className.includes('uvf_panel_fullscreen') === false)
+{
+  const frame = q('.uvf_panelFrame')
+  q('[data-panel-action=fold]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  await waitFor('审阅卡片折叠完整页面', () => q('.uvf_panelContent')?.hidden === true)
+  if (q('[data-panel-action=fold]')?.getAttribute('aria-label') !== '展开') throw new Error('fold control must expose the expand action')
+  if (q('.uvf_panelFrame') !== frame) throw new Error('folding must keep the full Univer page mounted')
+  q('[data-panel-action=fold]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  await waitFor('审阅卡片重新展开', () => q('.uvf_panelContent')?.hidden === false)
+}
 {
   const frame = q('.uvf_panelFrame')
   const reviewSession = sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false)
   activeLocale = 'en'
   localeRevision += 1
   render(reviewSession, false)
-  await waitFor('审阅面板切换英文', () => (q('.uvf_panelTitle')?.textContent ?? '').includes('Modification in progress') && q('.uvf_panelFrame')?.getAttribute('src') === EN_DEFAULT_UNIT_URL)
+  await waitFor('审阅卡片切换英文', () => q('.uvf_panelFrame')?.getAttribute('src') === EN_FULL_DEFAULT_UNIT_URL)
+  if (q('.uvf_panelWorktree')?.textContent !== 'v3smoke' || q('.uvf_panelMeta')?.textContent !== DEMO_FILE) throw new Error('locale switch must preserve the compact file and worktree header')
   if (q('.uvf_panelFrame') !== frame) throw new Error('locale switch must preserve the review iframe element')
   activeLocale = 'zh'
   localeRevision += 1
   render(reviewSession, false)
-  await waitFor('审阅面板切回中文', () => (q('.uvf_panelTitle')?.textContent ?? '').includes('正在进行的修改') && q('.uvf_panelFrame')?.getAttribute('src') === ZH_DEFAULT_UNIT_URL)
+  await waitFor('审阅卡片切回中文', () => q('.uvf_panelFrame')?.getAttribute('src') === ZH_FULL_DEFAULT_UNIT_URL)
 }
 q('.uvf_action[data-kind=ready]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
-await waitFor('标记 ready 后切到合并预览', () => q('.uvf_panelFrame')?.getAttribute('src') === ZH_DEFAULT_MERGE_URL)
+await waitFor('标记 ready 后切到完整合并页', () => q('.uvf_panelFrame')?.getAttribute('src') === ZH_FULL_DEFAULT_MERGE_URL)
 if ((q('.uvf_panelChip')?.textContent ?? '') !== '待确认') throw new Error('panel chip must switch to 待确认')
-if (q('.uvf_action[data-kind=merge]') === null) throw new Error('merge action must appear once marked ready')
-await waitFor('ready 操作恢复可用', () => q('.uvf_action[data-kind=merge]')?.disabled === false)
+if (q('.uvf_panelMeta')?.textContent !== DEMO_FILE) throw new Error('ready panel header metadata must remain the full file path')
+if (q('.uvf_action') !== null) throw new Error('ready card must defer merge and discard to the full Univer page')
 
 // ---- scenario 4: ready + session end → window closes, merge panel embeds ----
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('会话结束后浮窗关闭', () => q('.uvf_win') === null)
 await waitFor('合并预览面板出现', () => q('.uvf_panel') !== null)
-if (q('.uvf_panelFrame')?.getAttribute('src') !== ZH_DEFAULT_MERGE_URL) throw new Error('panel iframe must embed the localized mergePreview page at the changed unit')
-if ((q('.uvf_panelTitle')?.textContent ?? '').includes('v3smoke') === false) throw new Error('panel must name the ready worktree')
+if (q('.uvf_panelFrame')?.getAttribute('src') !== ZH_FULL_DEFAULT_MERGE_URL) throw new Error('card iframe must embed the full localized mergePreview page at the changed unit')
+if (q('.uvf_panelWorktree')?.textContent !== 'v3smoke') throw new Error('card must place the ready worktree beside the file name')
 if ((q('.uvf_panelChip')?.textContent ?? '') !== '待确认') throw new Error('panel chip must say 待确认')
-{
-  const kinds = qa('.uvf_action').map((el) => el.getAttribute('data-kind'))
-  if (kinds.includes('merge') === false || kinds.includes('discard') === false || kinds.includes('reopen') === true) {
-    throw new Error('ready panel actions wrong: ' + kinds.join(','))
-  }
-}
+if (q('.uvf_action') !== null) throw new Error('ready card must not duplicate the mergePreview page actions')
 
-// ---- scenario 4a: merge conflict → error shown, panel stays ----
-failMerge = true
-worktrees = [wt('ready')]
-render(sessionWithTargets([], false))
-await waitFor('冲突场景重置审阅面板', () => q('.uvf_panel') === null)
+// ---- scenario 4b: Viewer merge result → terminal review card remains ----
+worktrees = [wt('merged')]
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
-await waitFor('ready 面板出现（冲突场景）', () => q('.uvf_action[data-kind=merge]') !== null)
-q('.uvf_action[data-kind=merge]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
-await waitFor('冲突错误显示', () => (q('.uvf_error')?.textContent ?? '').includes('冲突'))
-if (q('.uvf_panel') === null) throw new Error('panel must stay after a failed merge')
-failMerge = false
-
-// ---- scenario 4b: merge success → terminal, nothing renders anywhere ----
-render(sessionWithTargets([], false))
-await waitFor('merge 成功场景重置审阅面板', () => q('.uvf_panel') === null)
-render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
-await waitFor('面板出现（merge 成功场景）', () => q('.uvf_panel') !== null)
-q('.uvf_action[data-kind=merge]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
-await waitFor('merge 后面板关闭', () => q('.uvf_panel') === null)
+await waitFor('Viewer merge 后保留终态卡片', () => (q('.uvf_panelChip')?.textContent ?? '') === '已合入')
+if (q('.uvf_panel')?.getAttribute('data-status') !== 'merged') throw new Error('merged review card must expose its terminal status')
+if (q('.uvf_panelMeta')?.textContent !== DEMO_FILE) throw new Error('merged review card header metadata must remain the full file path')
+if (q('.uvf_panelFrame')?.getAttribute('src') !== ZH_TRUNK_URL) throw new Error('merged review card must keep the full mainline page open')
+if (q('.uvf_action') !== null || q('[data-panel-action=fullscreen]') === null) throw new Error('merged review card must remove actions but preserve fullscreen')
 await new Promise((resolvePromise) => setTimeout(resolvePromise, 900))
 if (q('.uvf_win') !== null) throw new Error('merged worktree must not open a window')
 
-// ---- scenario 4c: discard → panel closes, no window ----
-worktrees = [wt('ready')]
-render(sessionWithTargets([], false))
-await waitFor('discard 场景重置审阅面板', () => q('.uvf_panel') === null)
+// ---- scenario 4c: Viewer discard result → terminal review card remains ----
+worktrees = [wt('discarded')]
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
-await waitFor('ready 面板出现（discard 场景）', () => q('.uvf_action[data-kind=discard]') !== null)
-q('.uvf_action[data-kind=discard]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
-await waitFor('discard 后面板关闭', () => q('.uvf_panel') === null)
+await waitFor('Viewer discard 后保留终态卡片', () => (q('.uvf_panelChip')?.textContent ?? '') === '已丢弃')
+if (q('.uvf_panel')?.getAttribute('data-status') !== 'discarded') throw new Error('discarded review card must expose its terminal status')
+if (q('.uvf_panelFrame')?.getAttribute('src') !== ZH_TRUNK_URL || q('.uvf_action') !== null) throw new Error('discarded review card must show mainline without mutation actions')
 await new Promise((resolvePromise) => setTimeout(resolvePromise, 900))
 if (q('.uvf_win') !== null) throw new Error('discarded worktree must not open a window')
 
-// ---- scenario 5: merged + session end → nothing anywhere ----
+// ---- scenario 5: replayed merged worktree → terminal card ----
 worktrees = [wt('merged')]
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
-await new Promise((resolvePromise) => setTimeout(resolvePromise, 1100))
-if (q('.uvf_panel') !== null || q('.uvf_win') !== null) throw new Error('merged worktree must render nowhere')
+await waitFor('历史 merged worktree 显示终态卡片', () => q('.uvf_panel')?.getAttribute('data-status') === 'merged')
+if (q('.uvf_win') !== null || q('.uvf_panelFrame')?.getAttribute('src') !== ZH_TRUNK_URL) throw new Error('replayed merged card must open the full mainline page')
 
 // ---- scenario 6: targets cleared → everything closes ----
 render(sessionWithTargets([], false))
 await waitFor('targets 清空后全部关闭', () => q('.uvf_win') === null && q('.uvf_panel') === null)
 
 reactRoot.unmount()
+reviewRoot.unmount()
 server.close()
 console.log('client smoke OK')

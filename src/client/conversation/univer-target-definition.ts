@@ -16,7 +16,9 @@ export interface UniverTurnData {
 }
 
 /** Match passed from the turn-tail selector to the preview component. */
-export interface UniverPreviewMatch extends UniverTurnData {}
+export interface UniverPreviewMatch extends UniverTurnData {
+  readonly turn: number
+}
 
 interface UniverTargetState extends UniverTurnData {
   readonly turn: number
@@ -55,7 +57,7 @@ export const univerTargetDefinition = {
 export function selectUniverPreview(owner: TurnTailOwnerProps): UniverPreviewMatch | null {
   const data = owner.turn.data.get('univerTarget')
   if (data === undefined || data.targets.length === 0) return null
-  return { targets: data.targets }
+  return { turn: owner.turn.turn, targets: data.targets }
 }
 
 /** Resolve and deduplicate the files rendered as turn-tail preview cards. */
@@ -139,7 +141,10 @@ function mergeTargets(previous: readonly UniverTarget[], additions: readonly Uni
   for (const target of additions) {
     const index = merged.findIndex((entry) => entry.file === target.file)
     if (index === -1) merged.push(target)
-    else merged[index] = target
+    else merged[index] = {
+      file: target.file,
+      worktreeId: target.worktreeId ?? merged[index]?.worktreeId ?? null,
+    }
   }
   return merged
 }

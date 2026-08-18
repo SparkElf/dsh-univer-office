@@ -8,6 +8,8 @@ export const zh = {
   'dock.fold': '折叠', 'dock.expand': '展开', 'dock.maximize': '放大', 'dock.restore': '还原', 'dock.close': '关闭',
   'dock.gatewayDown': 'Univer Gateway 未运行，无法实时预览', 'dock.startGateway': '启动 Gateway',
   'dock.mergeTitle': '合并预览', 'dock.reviewTitle': '正在进行的修改', 'dock.markReady': '提交确认',
+  'dock.merged': '已合入', 'dock.discarded': '已丢弃', 'dock.mergedTitle': '修改已合入', 'dock.discardedTitle': '修改已丢弃',
+  'dock.fullscreen': '全屏审阅', 'dock.exitFullscreen': '退出全屏',
   'dock.notReady': '提交确认后，可以合入或丢弃这处修改', 'dock.merge': '合入当前版本', 'dock.discard': '丢弃',
 } as const
 

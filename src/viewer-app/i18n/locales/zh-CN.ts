@@ -124,7 +124,7 @@ export const ZH_CN_MESSAGES: Messages = {
     daysAgo: (n: number): string => `${n} 天前`
   },
   content: {
-    emptyTitle: "还没有打开的文件",
+    emptyTitle: "空文件",
     emptyHint: "从左侧选择一个文件开始查看,或等待 AI 助手的修改完成确认。"
   },
   summary: {
