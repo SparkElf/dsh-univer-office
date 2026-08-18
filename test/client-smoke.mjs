@@ -527,8 +527,10 @@ if ((q('.uvf_hint')?.textContent ?? '').includes('提交确认') === false) thro
 q('[data-panel-action=fullscreen]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
 await waitFor('审阅面板进入全屏', () => q('.uvf_panel')?.className.includes('uvf_panel_fullscreen') === true)
 if (q('[data-panel-action=fullscreen]')?.getAttribute('aria-label') !== '退出全屏') throw new Error('fullscreen control must expose its current action')
+if (q('[data-panel-action=fold]') !== null) throw new Error('fullscreen review card must hide the fold control')
 dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }))
 await waitFor('Escape 退出审阅全屏', () => q('.uvf_panel')?.className.includes('uvf_panel_fullscreen') === false)
+if (q('[data-panel-action=fold]') === null) throw new Error('fold control must return after exiting fullscreen')
 {
   const frame = q('.uvf_panelFrame')
   q('[data-panel-action=fold]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))

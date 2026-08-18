@@ -53,9 +53,9 @@ export function ReviewPanel(props: { readonly sessionId: SessionId; readonly fil
       }}>
         <FullscreenIcon restored={fullscreen} />
       </PanelControl>
-      <PanelControl action="fold" label={props.t(open ? 'dock.fold' : 'dock.expand')} onClick={() => setOpen((value) => !value)}>
+      {fullscreen ? null : <PanelControl action="fold" label={props.t(open ? 'dock.fold' : 'dock.expand')} onClick={() => setOpen((value) => !value)}>
         <FoldIcon open={open} />
-      </PanelControl>
+      </PanelControl>}
     </header>
     <div className="uvf_panelContent" hidden={!open}>
       <div className="uvf_panelBody">
