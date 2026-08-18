@@ -15,6 +15,7 @@
     "cordis.patch.yml"
   ],
   "exports": {
+    ".": "./lib/index.js",
     "./client": {
       "default": "./lib/client.js"
     },
