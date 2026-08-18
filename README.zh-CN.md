@@ -8,13 +8,59 @@
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.19-339933?logo=node.js&logoColor=white)](package.json)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-`dsh-univer-office` 是 DeepSeek Harness（DSH）的 Univer 办公插件。告诉 Agent 你想要什么，它可以从零创建 `.univer` 文件，处理现有 Office 文件，在隔离 worktree 中完成修改与校验，并把结果留在会话中供你预览、合并或丢弃。
+`dsh-univer-office` 是 DeepSeek Harness（DSH）的 Univer 办公插件。告诉 Agent 你想要什么，它可以创建和编辑电子表格、文档、演示文稿、多维表格与画布，也可以处理现有的 Excel、Word 和 PowerPoint 文件。所有修改都会经过校验，并留在会话中供你预览、确认或放弃。
 
-安装后直接用自然语言描述目标即可。Agent 会完成创建、编辑和校验，你可以在会话中实时查看过程、审阅结果，并按需导出 Office 文件。
+安装后直接用自然语言描述目标即可。Agent 会完成创建、编辑和校验，你可以在会话中实时查看过程、审阅结果，并把电子表格导出为 Excel（`.xlsx`），或按需交付 Word（`.docx`）和 PowerPoint（`.pptx`）文件。
+
+## 看看实际效果
+
+下面的电子表格由 Agent 根据自然语言要求创建，并在同一个会话中继续添加条件格式和图表。完成后可以直接预览、继续修改、合入当前版本或丢弃。
+
+![在 DSH 会话中审阅带条件格式和图表的电子表格](docs/assets/readme/chart-and-formatting.png)
+
+> **可以直接交付 Excel 文件：** 审阅完成后，让 Agent 将电子表格导出为 `.xlsx`，即可使用 Excel、WPS Office 等常见办公软件继续打开和编辑。
+
+<details>
+<summary>查看从提出需求到审阅结果的完整过程</summary>
+
+### 1. 用自然语言描述任务
+
+![要求 Agent 创建班级成绩表](docs/assets/readme/spreadsheet-request.png)
+
+### 2. 修改过程中实时查看结果
+
+![Agent 工作时显示实时电子表格浮窗](docs/assets/readme/live-worktree.png)
+
+### 3. 在会话中确认或放弃修改
+
+![任务完成后的电子表格审阅卡片](docs/assets/readme/review-result.png)
+
+</details>
+
+### 从一句话生成可交付的演示文稿
+
+Agent 可以根据主题、受众、页数、内容结构和视觉要求生成完整演示文稿，在制作过程中逐页检查内容与布局，并把结果留在会话中审阅。
+
+![在 DSH 会话中审阅冒泡排序教学演示文稿](docs/assets/readme/presentation-review.png)
+
+> **可以直接交付 PowerPoint 文件：** 审阅完成后，让 Agent 将演示文稿导出为 `.pptx`，即可使用 PowerPoint、WPS Office 等常见办公软件继续播放和编辑。
+
+<details>
+<summary>查看演示文稿从需求到成品的制作过程</summary>
+
+#### 1. 说明主题、受众和页面要求
+
+![要求 Agent 创建冒泡排序教学演示文稿](docs/assets/readme/presentation-request.png)
+
+#### 2. 制作过程中实时查看和校验页面
+
+![Agent 制作演示文稿时显示实时预览窗口](docs/assets/readme/presentation-live.png)
+
+</details>
 
 ## 你可以让它做什么
 
-- **分析和制作表格**：清洗数据，编写公式，设置格式、数据验证和条件格式，创建表格、图表、透视表、筛选器、迷你图与图片。
+- **分析和制作表格**：读取或创建 Excel 数据，清洗字段，编写公式，设置格式、数据验证和条件格式，创建表格、图表、透视表、筛选器、迷你图与图片，最后导出为 `.xlsx`、`.csv` 或 `.tsv`。
 - **撰写和排版文档**：创建段落、富文本、列表、任务、表格、图片、图表、页眉页脚、分页与页面布局。
 - **创建和修改演示文稿**：从大纲生成整套幻灯片，重设计指定页面，编辑文字、形状、图片、表格、图表与转场，并检查越界、溢出和文本重叠。
 - **搭建多维表格**：创建表、字段、记录和视图，使用公式字段、筛选、排序、分组及 Sheet 数据引用。

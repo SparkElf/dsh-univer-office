@@ -8,13 +8,59 @@ English · [简体中文](README.zh-CN.md)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.19-339933?logo=node.js&logoColor=white)](package.json)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-`dsh-univer-office` is the Univer office plugin for DeepSeek Harness (DSH). Tell the agent what you need and it can create `.univer` files from scratch, work with existing Office files, make and verify changes in an isolated worktree, and leave the result in the conversation for you to review, merge, or discard.
+`dsh-univer-office` is the Univer office plugin for DeepSeek Harness (DSH). Tell the agent what you need and it can create or edit spreadsheets, documents, presentations, multidimensional tables, and canvases, or work with existing Excel, Word, and PowerPoint files. Every change is verified and stays in the conversation for you to preview, approve, or discard.
 
-After installation, describe the result you want in natural language. The agent handles creation, editing, and verification while you follow the work live, review the result in the conversation, and export an Office file when needed.
+After installation, describe the result you want in natural language. The agent handles creation, editing, and verification while you follow the work live and review the result in the conversation. Deliver spreadsheets as Excel (`.xlsx`), documents as Word (`.docx`), and presentations as PowerPoint (`.pptx`) files when needed.
+
+## See it in action
+
+The agent created this spreadsheet from a natural-language request, then added conditional formatting and a chart in the same conversation. The result can be previewed, revised, merged into the current version, or discarded in place.
+
+![Reviewing a spreadsheet with conditional formatting and a chart in DSH](docs/assets/readme/chart-and-formatting.png)
+
+> **Deliver a standard Excel file:** after review, ask the agent to export the spreadsheet as `.xlsx` so it can be opened and edited in Excel, WPS Office, and other compatible office applications.
+
+<details>
+<summary>See the complete workflow from request to review</summary>
+
+### 1. Describe the task in natural language
+
+![Asking the agent to create a class score sheet](docs/assets/readme/spreadsheet-request.png)
+
+### 2. Follow the result live while the agent works
+
+![A live spreadsheet window while the agent works](docs/assets/readme/live-worktree.png)
+
+### 3. Approve or discard the changes in the conversation
+
+![The spreadsheet review card after the task completes](docs/assets/readme/review-result.png)
+
+</details>
+
+### Generate a presentation from one request
+
+Give the agent a topic, audience, page count, content outline, and visual direction. It can build the complete presentation, verify content and layout page by page, and leave the result in the conversation for review.
+
+![Reviewing a bubble sort teaching presentation in DSH](docs/assets/readme/presentation-review.png)
+
+> **Deliver a standard PowerPoint file:** after review, ask the agent to export the presentation as `.pptx` so it can be presented and edited in PowerPoint, WPS Office, and other compatible office applications.
+
+<details>
+<summary>See the presentation workflow from request to finished deck</summary>
+
+#### 1. Specify the topic, audience, and page requirements
+
+![Asking the agent to create a bubble sort teaching presentation](docs/assets/readme/presentation-request.png)
+
+#### 2. Follow and verify the pages while the agent works
+
+![A live presentation window while the agent works](docs/assets/readme/presentation-live.png)
+
+</details>
 
 ## What can it do?
 
-- **Analyze and build spreadsheets** — clean data, write formulas, apply formatting and validation, and create tables, charts, pivot tables, filters, sparklines, conditional formatting, and images.
+- **Analyze and build spreadsheets** — read or create Excel data, clean fields, write formulas, apply formatting and validation, create tables, charts, pivots, filters, sparklines, conditional formatting, and images, then export the result as `.xlsx`, `.csv`, or `.tsv`.
 - **Write and lay out documents** — create paragraphs, rich text, lists, tasks, tables, images, charts, headers, footers, pagination, and page layouts.
 - **Create and revise presentations** — generate a deck from an outline, redesign selected pages, edit text, shapes, images, tables, charts, and transitions, then detect off-page, overflowing, and overlapping text.
 - **Build lightweight databases** — create Base tables, fields, records, and views with formula fields, filters, sorting, grouping, and Sheet-backed references.
