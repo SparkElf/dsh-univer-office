@@ -3,6 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { unitId, worktreeId } from '../../service/identifiers.ts'
 import { UniverError } from '../../service/errors.ts'
 import { operationOutput, operationTitle } from '../presentation.ts'
+import { stripGatewaySuccessEnvelope } from '../normalize.ts'
 import { existingToolFile } from '../workspace.ts'
 
 /** Create the `univer_unit` tool definition. */
@@ -26,25 +27,25 @@ export function unitTool(ctx: Context, timeoutMs: number) {
         if (args.kind === undefined || args.name === undefined || args.name.length === 0) {
           throw new UniverError('univer_unit create requires kind and a non-empty name.', 'INVALID_REQUEST')
         }
-        return ctx.univer.unit({
+        return stripGatewaySuccessEnvelope(await ctx.univer.unit({
           action: 'create',
           workspace: target.workspace,
           file: target.path,
           worktreeId: worktreeId(args.worktreeId),
           kind: args.kind,
           name: args.name,
-        }, exec.signal)
+        }, exec.signal))
       }
       if (args.unitId === undefined || args.unitId.length === 0) {
         throw new UniverError('univer_unit remove requires unitId.', 'INVALID_REQUEST')
       }
-      return ctx.univer.unit({
+      return stripGatewaySuccessEnvelope(await ctx.univer.unit({
         action: 'remove',
         workspace: target.workspace,
         file: target.path,
         worktreeId: worktreeId(args.worktreeId),
         unitId: unitId(args.unitId),
-      }, exec.signal)
+      }, exec.signal))
     },
     presentCall: (args) => ({ card: 'generic', title: operationTitle(`unit ${args.action}`, args.file), kind: 'execute' }),
   })
