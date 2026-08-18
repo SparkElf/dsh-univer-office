@@ -1,88 +1,158 @@
-# DeepSeek Harness (DSH) × Univer 插件
+# DSH × Univer Office
 
-> **在 DeepSeek Harness 中创建、检查、编辑和审阅 Univer 文件。**
+> 让 DeepSeek Harness 直接创建、编辑、检查和交付表格、文档、幻灯片、多维表格与画布。
 
-[English](README.md) · [中文](README.zh-CN.md)
+[English](README.md) · 简体中文
 
-在 DeepSeek Harness（简称 DSH）应用内直接创建并预览 Univer 办公文件（表格、文档、幻灯片、Base）。回合使用结构化 `univer_*` 工具后，每个被操作的 `.univer` 文件都会显示一张独立预览卡片，点击即可在应用内全屏展开；worktree 编辑显示实时浮窗，会话结束后的审阅也留在会话内完成。
+[![npm](https://img.shields.io/npm/v/dsh-univer-office)](https://www.npmjs.com/package/dsh-univer-office)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.19-339933?logo=node.js&logoColor=white)](package.json)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-```
-┌────────────────────────────────────────┐
-│ 📊 销售表格.univer  [wt-xxx]  [展开预览 ▾] │  ← 回合尾部卡片
-│ /Users/.../销售表格.univer              │
-└────────────────────────────────────────┘
+`dsh-univer-office` 是 DeepSeek Harness（DSH）的 Univer 办公插件。告诉 Agent 你想要什么，它可以从零创建 `.univer` 文件，处理现有 Office 文件，在隔离 worktree 中完成修改与校验，并把结果留在会话中供你预览、合并或丢弃。
 
-┌──────────────────────────────┐
-│ ● agent-draft · 销售表格     │  ← 实时浮窗（draft worktree）
-│ [修改中]  [−] [⤢] [✕]        │
-│ ┌──────────────────────────┐ │
-│ │   实时 worktree Viewer   │ │     双击标题栏最大化，
-│ │   （只读 · 实时同步）     │ │     可拖拽 / 缩放 / 折叠
-│ └──────────────────────────┘ │
-└──────────────────────────────┘
+安装后直接用自然语言描述目标即可。Agent 会完成创建、编辑和校验，你可以在会话中实时查看过程、审阅结果，并按需导出 Office 文件。
 
-┌────────────────────────────────────────┐
-│ 🧾 合并预览「agent-draft」  [待确认] ▾  │  ← 会话结束合并面板
-│ ┌────────────────────────────────────┐ │
-│ │   合并预览页面（内嵌）              │ │
-│ └────────────────────────────────────┘ │
-└────────────────────────────────────────┘
-```
+## 你可以让它做什么
 
-## 功能
+- **分析和制作表格**：清洗数据，编写公式，设置格式、数据验证和条件格式，创建表格、图表、透视表、筛选器、迷你图与图片。
+- **撰写和排版文档**：创建段落、富文本、列表、任务、表格、图片、图表、页眉页脚、分页与页面布局。
+- **创建和修改演示文稿**：从大纲生成整套幻灯片，重设计指定页面，编辑文字、形状、图片、表格、图表与转场，并检查越界、溢出和文本重叠。
+- **搭建多维表格**：创建表、字段、记录和视图，使用公式字段、筛选、排序、分组及 Sheet 数据引用。
+- **绘制可编辑画布**：创建形状、文本、连接线、图片、原生图表和流程图，并检查连接关系与布局。
+- **组合多种内容**：一个 `.univer` 文件可以同时包含 Sheet、Doc、Slide、多维表格（Base）和 Board；公式或嵌入内容可以引用同一文件中的其他 Unit。
+- **处理 Office 文件**：导入 `.xlsx`、`.csv`、`.tsv`、`.docx`、`.pptx`，修改后按对应格式导出。
+- **安全审阅 Agent 修改**：所有写入先进入独立 worktree。你可以实时预览差异，在会话末尾选择合并或丢弃，不会让 Agent 直接覆盖当前版本。
 
-- **回合尾部预览卡片** —— 使用结构化 `univer_*` 工具的回合结束后，每个被操作的 `.univer` 文件显示一张独立卡片。
-- **应用内全屏预览** —— 点卡片在应用内 iframe 中打开表格；✕ / 遮罩 / Esc 关闭。
-- **实时浮窗** —— agent 创建或更新 worktree 后，**右上角**弹出小浮窗，内嵌只读实时 worktree 页面；修改会实时出现在浮窗里。一个 worktree 改动多个 unit（如表格+PPT）时，浮窗与审阅面板顶部的 **unit 切换 chips** 只列出有变动的单元（＋新增 / ✎修改 / －删除 / ⚠冲突），未变动的单元不显示；默认打开第一个变动单元。
-- **浮窗交互** —— 拖标题栏移动，双击标题栏最大化；使用独立的折叠、最大化/还原和关闭按钮；拖任意边缘或角调整大小。折叠时保留已加载的 Viewer，展开可立即恢复。移动、缩放和视口变化都会保持完整窗口可见。
-- **ready + 会话结束 → 自动关闭并嵌入审阅卡片** —— 会话转入空闲后，每个 worktree 都会以审阅卡片嵌入最近一次操作它的已结束回合末尾。紧凑卡片 header 首行显示 Univer 文件名及其右侧的 worktree 名称，次行只显示完整文件路径，右侧显示生命周期状态和控制按钮；不同生命周期的展开卡片使用相同宽度和内容高度。Univer 页面可折叠但不会卸载，并支持一键全屏和按 Esc 退出。`ready` 显示完整合并页（`scope=mergePreview`），丢弃 / 合入当前版本只使用页面内置操作，不在卡片底部重复显示；**`draft` 也会显示**完整实时页面以及提交确认 / 丢弃按钮。merge 或 discard 后，同一张卡片继续保留，移除修改操作，并把完整页面切换到主线。后续回合再次操作该 worktree 时，旧回合保留同款审阅 header 作为历史标记，完整交互卡片移动到新回合末尾。Univer 文件尚无 Unit 时，只把原空状态标题改为“空文件”。会话仍在运行时，非终态 worktree 在右上角浮窗显示。
-- **审阅卡片视区** —— 桌面端展开后的卡片默认总高度约 650px；卡片内嵌的完整 Univer 页面默认收起左侧边栏，仍可在页面内手动展开。卡片进入全屏后隐藏折叠按钮，退出全屏后恢复。
-- **内置 Gateway 管理** —— 插件自带协作 Gateway 与 Viewer；绿点 = 运行中，黄点 = 未运行，点击即可启动插件持有的 Gateway。
-- **多会话并行** —— 各会话显示各自回合的卡片、浮窗与合并面板。
-- **双语界面** —— 插件外壳和所有已打开的 Viewer 都跟随应用语言（中/英）。
+### 试试这些任务
 
-## 环境要求
+```text
+分析 sales.xlsx，修复日期和金额字段，新增月度趋势、地区对比图和汇总页，交付 xlsx。
 
-- DeepSeek Harness 与 Node.js 22.19 或更高版本；当前平台的原生依赖由包管理器从 registry 安装。Slide 布局检查和 SVG 真实文字测量需要本机 Chrome/Chromium，或设置 `UNIVER_RENDER_BROWSER`。
-- 不需要全局安装 Univer CLI。插件内置 Gateway、Viewer、无头 Unit Content Worker、machine render page、Office 转换器、Univer license、当前平台的原生依赖及 8 个版本匹配、按需加载的 Univer Skills：核心编排、5 类 Unit 指南、Embed 与跨 Unit 公式。除 DSH Tool/Client 预览替代 CLI command、以及插件尚未开放的能力外，工作流与 Univer CLI 保持一致。插件注册 `univer_new`、`univer_status`、`univer_worktree`、`univer_unit`、`univer_import`、`univer_inspect`、`univer_execute`、`univer_export`、`univer_lint`、`univer_compile_svg` 和 `univer_api`。
-- 暂不提供模型截图能力。bundled Skill 会在视觉效果尚未验证时明确说明，不会声称已经完成视觉确认。
+根据 brief.md 创建一份 8 页中文路演 PPT，使用深蓝色视觉体系，每页完成布局检查，最后导出 pptx。
 
-## 安装
+把 meeting-notes.md 整理成正式项目周报，包含执行摘要、风险表、下周计划和页眉页脚，交付 docx。
 
-本包是一个标准 [DSH bundle](https://github.com/deepseek-ai/deepseek-harness/blob/main/docs/user/develop/basic/publish.md)：声明了 `dsh.bundle` 并自带 `cordis.patch.yml`，可通过标准 loader 安装：
+创建一个客户跟进多维表格，包含公司、联系人、阶段、预计金额和下次行动，并提供按阶段分组的视图。
 
-### 从 git 安装
-
-```sh
-dsh plugin --profile web add github:dream-num/dsh-univer-office
+在同一个 .univer 文件里创建销售数据 Sheet 和汇报 Slide，让 Slide 图表引用 Sheet 数据。
 ```
 
-### 从 npm 安装
+## 能力一览
+
+| 内容类型 | 创建与编辑 | 校验与审阅 | 导入 | 导出 |
+| --- | --- | --- | --- | --- |
+| Sheet | 单元格、公式、样式、表格、图表、透视表、筛选、验证、图片等 | 结构化范围检查、公式重算、实时预览 | `.xlsx` `.csv` `.tsv` | `.xlsx` `.csv` `.tsv` |
+| Doc | 段落、富文本、列表、任务、表格、图片、图表、页眉页脚、分页 | 文档结构回读、实时预览 | `.docx` | `.docx` |
+| Slide | 页面、文字、形状、图片、表格、图表、SVG 布局、转场 | 结构检查、文字越界/溢出/重叠检查、实时预览 | `.pptx` | `.pptx` |
+| 多维表格（Base） | 表、字段、记录、视图、公式字段、筛选、排序、分组 | Facade 数据回读、实时预览 | — | `.xlsx` `.csv` `.tsv` |
+| Board | 形状、文字、连接线、图片、原生图表、自动布线 | 元素与连接关系分析、实时预览 | — | — |
+
+所有类型都支持在隔离 worktree 中编辑、提交审阅、重新打开、合并或丢弃。多维表格和 Board 当前通过 Facade 回读完成结构校验；Board 暂不支持文件导出。
+
+## 3 分钟上手
+
+### 1. 安装插件
+
+从 npm 安装：
 
 ```sh
 dsh plugin --profile web add dsh-univer-office
 ```
 
-### 从本地 checkout 安装（开发用）
+或者直接从 GitHub 安装最新版本：
 
 ```sh
-dsh plugin --profile web add /path/to/dsh-univer-office
+dsh plugin --profile web add github:dream-num/dsh-univer-office
 ```
 
-> profile 首次使用会自动初始化；`dsh` 会把该 bundle 追加到 `dsh.profile.bundles`，pnpm 链接包后，loader 自动应用插件的 `cordis.patch.yml` 层。可用 `dsh --profile web --dump-config` 验证（应能看到 `# == dsh-univer-office` 层）。
+安装完成后，在 DeepSeek Harness 窗口按 **Cmd+R / Ctrl+R** 刷新。
 
-任何方式安装后：在 DeepSeek Harness 窗口按 **Cmd+R / Ctrl+R** 刷新。
+### 2. 直接描述结果
 
-## 使用
+```text
+创建 reports/q2-review.univer。读取 data/q2-sales.xlsx，生成一个带汇总指标、月度趋势和地区排名的管理看板。
+```
 
-1. 创建空 `.univer` 文件，再创建隔离 worktree
-2. 在 draft worktree 中创建指定类型的 Unit，或导入 Office 文件
-3. 模型会主动加载核心 Skill 与对应 Unit Skill；Embed 和跨 Unit 公式还会加载各自 Topic Skill；需要准确 Facade 或方法时用 `univer_api` 查询
-4. 用 `univer_execute` 修改，用 `univer_inspect` 检查内容，并对 Slide 运行 `univer_lint` 检查文字布局
-5. 需要用 SVG 替换或叠加指定 Slide 页面时使用 `univer_compile_svg`；只在用户要求时导出
-6. 用 `ready` 提交确认；同一任务需要继续修改时用 `reopen`
-7. 只有用户明确要求且 DSH 审批通过后才 merge 或 discard；应用内审阅面板也提供相同决策
-8. 预览卡片、实时 worktree 浮窗和会话结束审阅面板会随结构化工具结果更新
+Agent 会自动选择对应 Skills 和 `univer_*` 工具。通常会依次创建文件与 worktree、导入或创建 Unit、修改内容、回读校验，然后把 worktree 标记为待确认。
+
+### 3. 在会话中审阅
+
+- 修改进行时，右上角实时浮窗会同步显示 worktree 内容。
+- 回合结束后，每个被操作的 `.univer` 文件都会显示预览卡片，可在应用内全屏打开。
+- Agent 提交后，会话中会出现完整审阅卡片。确认结果后再合并；不满意可以要求继续修改或直接丢弃。
+
+## 工作方式
+
+一个 `.univer` 文件是可组合的办公容器，其中可以放置多个不同类型的 Unit。插件把 Agent 的每次任务放入独立 worktree：
+
+```text
+你的要求
+   ↓
+按需加载 Univer Skill
+   ↓
+在 draft worktree 中创建 / 导入 / 编辑
+   ↓
+结构回读 + 公式重算 + Slide 布局检查
+   ↓
+实时预览与会话内审阅
+   ↓
+继续修改 / 合并 / 丢弃
+```
+
+只有 `merge` 和 `discard` 会结束 worktree，且两者都需要用户明确授权和 DSH 审批。`ready` 只是提交审阅，不会修改主线。
+
+## 内置工具
+
+日常使用不需要手动调用工具；DSH 会根据任务自动选择。下面的列表可以帮助你理解插件的覆盖范围。
+
+| 工具 | 作用 |
+| --- | --- |
+| `univer_new` | 创建空 `.univer` 文件，不覆盖已有文件 |
+| `univer_status` | 查看主线与 worktree 中的 Unit 和状态 |
+| `univer_worktree` | 创建、提交、重开、合并或丢弃隔离 worktree |
+| `univer_unit` | 创建或删除 Sheet、Doc、Slide、多维表格（Base）、Board Unit |
+| `univer_import` | 把 Office 文件导入为新 Unit |
+| `univer_inspect` | 读取文档结构或指定 Sheet 范围 |
+| `univer_execute` | 执行精确 Univer Facade API 读取或修改 |
+| `univer_export` | 导出 Sheet、Doc、Slide 或多维表格 |
+| `univer_lint` | 检查 Slide 文字越界、溢出和重叠 |
+| `univer_compile_svg` | 用真实字体度量把 SVG 编译到指定 Slide 页面 |
+| `univer_api` | 按意图检索插件实际包含的 Univer Facade API |
+
+插件还包含 8 个版本匹配、按需加载的 Skills：核心编排、Sheet、Doc、Slide、多维表格（Base）、Board、Embed 和跨 Unit 公式。
+
+## 预览与审阅体验
+
+- **实时 worktree 窗口**：可拖动、缩放、折叠和全屏；一个 worktree 修改多个 Unit 时，只显示发生变化的 Unit。
+- **回合预览卡片**：每个被修改的 `.univer` 文件都有独立卡片，不需要离开对话寻找产物。
+- **会话末尾审阅**：`draft` 和 `ready` worktree 都能直接在会话中检查；合并或丢弃后，卡片会保留为历史记录。
+- **多会话隔离**：每个 DSH 会话只展示属于自己的窗口、卡片和审阅状态。
+- **中英文界面**：插件外壳和已打开的 Viewer 跟随 DSH 的界面语言。
+
+## 要求与限制
+
+- DeepSeek Harness，以及 Node.js `>=22.19.0`。
+- Slide 布局检查和 SVG 真实文字度量需要本机 Chrome/Chromium；也可以通过 `UNIVER_RENDER_BROWSER` 指定浏览器路径。
+- 插件目前不向模型提供截图，因此结构和布局检查不能替代逐像素视觉验收。你仍然可以在实时 Viewer 中人工检查结果。
+- Slide 的母版、版式页和演讲者备注不在当前编辑范围内。
+- Board 的思维导图、表格、墨迹和高级编辑，以及 Board 文件导出尚未开放。
+
+## 配置
+
+默认配置适合本地使用：Gateway 会在首次读取文件状态时自动启动，并依次尝试端口 `9123` 和 `8000`。如需定制，可在 bundle 的 Cordis 配置层设置：
+
+| 字段 | 默认值 | 说明 |
+| --- | --- | --- |
+| `gatewayPorts` | `[9123, 8000]` | 内置 Gateway 尝试使用的本地端口 |
+| `autoStartGateway` | `true` | 首次访问时自动启动 Gateway |
+| `gatewayStartupTimeoutMs` | `10000` | Gateway 启动超时 |
+| `gatewayRequestTimeoutMs` | `3000` | 状态读取超时 |
+| `gatewayMutationTimeoutMs` | `60000` | Gateway 写操作超时 |
+| `unitContentOperationTimeoutMs` | `120000` | 导入、导出、检查和执行超时 |
+| `tools` | `true` | 注册 `univer_*` 工具 |
+| `skills` | `true` | 注册内置 Univer Skills |
+
+其余缓存与提交确认选项见 [`src/host/config.ts`](src/host/config.ts)。
 
 ## 卸载
 
@@ -90,69 +160,33 @@ dsh plugin --profile web add /path/to/dsh-univer-office
 dsh plugin --profile web remove dsh-univer-office
 ```
 
-## 结构
-
-本项目是一个可安装的 DSH bundle，内部由多个 Cordis 角色组成：
-
-- Host 根插件组合 Univer Service Provider、webServer Consumer、Tools Consumer 和 bundled lazy Skill Provider；
-- Consumer 只调用 `ctx.univer`，不会直接访问 Gateway、CLI、子进程或文件系统；
-- `host/webServer` 提供 `GET /univer-api/status`、`POST /univer-api/gateway/start`、`GET /univer-api/state` 和 `POST /univer-api/worktree-action`；
-- Tools Consumer 注册领域工具，不提供通用 CLI 透传；
-- `host/processes/gateway` 管理内置 Gateway 进程和 Viewer 资源；`host/adapters/unit-content` 为 import、inspect、execute、export 和 render-source 读取启动来自 `workers/unit-content` 的一次性 Unit Content Worker；machine render page 提供 Slide 布局事实和 SVG 文字测量，但不暴露截图；
-- Client 从持久化工具事件恢复结构化目标，通过统一 API 层轮询状态，再由预览、实时浮窗和审阅组件渲染。
-
-`src/` 包含 Host、Client、Gateway、Unit Content Worker 和 Viewer 源码。Viewer application 及其本地渲染支撑源码从 `univer-cli` 复制而来，本仓库会构建自己发布的所有 application。目录、依赖方向和信任边界见[架构决策](docs/architecture.md)。
-
 ## 开发
 
-`lib/`、`artifacts/`、`dist/` 及归档产物（`univer-dsh-plugin.zip`、`*.tgz`）均为**生成物**，不入库。`pnpm run build` 从 `src/` 构建 Host、Client、Gateway、Unit Content Worker、machine render page 和 Viewer。
+本项目是一个标准 [DSH bundle](https://github.com/deepseek-ai/deepseek-harness/blob/main/docs/user/develop/basic/publish.md)。Host 组合 Univer Service Provider、Tools Consumer、webServer Consumer 和 Skill Provider；插件自带 Gateway、Viewer、无头 Unit Content Worker 与 Slide render machine。依赖方向和运行时边界见[架构文档](docs/architecture.md)。
 
 ```sh
+pnpm install
 pnpm run build
 pnpm run test
 ```
 
-然后重建发布产物：
+构建 npm tarball 和 zip 发布包：
 
 ```sh
 bash scripts/build-dist.sh
 ```
 
-该脚本会重新生成 `dist/univer/`（发布包内容）、npm tarball `dist/univer-office-<version>.tgz` 与 zip 分发包 `univer-dsh-plugin.zip`（包内容）。
+`lib/`、`artifacts/`、`dist/`、`*.tgz` 和 `univer-dsh-plugin.zip` 都是生成物，不提交到仓库。
 
-单独运行冒烟测试：
+## 官方包名
 
-```sh
-node test/host-smoke.mjs
-node test/client-smoke.mjs
-node test/skills-smoke.mjs
-npm run test:integration
-```
+请只安装 `dsh-univer-office`。以下相似名称是本项目为防止仿冒而保留的 deprecated npm 占位包，不包含插件代码：
 
-发布：`npm publish`（遵循 `files` 白名单）；zip/tgz 挂到 GitHub Release 供终端用户下载。
-
-## 预留的 npm 包名
-
-以下无 scope 的裸名已由本项目预留，用于防 typosquatting（恶意仿冒）——`redirects/<name>/` 各目录存放占位包（deprecated，指向官方包名），不含任何代码：
-
-- [`dsh-univer-plugin`](https://www.npmjs.com/package/dsh-univer-plugin)
+- `dsh-univer-plugin`
 - `dsh-univer-office-suite`
 - `dsh-univer-suite`
 - `univer-office-suite`
 - `univer-office`
-
-**请始终安装官方包：**
-
-```sh
-dsh plugin --profile web add github:dream-num/dsh-univer-office   # 从 git
-dsh plugin --profile web add dsh-univer-office                    # 从 npm
-```
-
-## 元数据
-
-- **Topic**：[`dsh-plugin`](https://github.com/topics/dsh-plugin)
-- **Bundle manifest**：`dsh.bundle.patch` → `./cordis.patch.yml`
-- **Client manifest**：`dsh.client`（`platform: "web"` + `inject`）
 
 ## 许可
 
