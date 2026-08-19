@@ -1,6 +1,6 @@
 name: Release to npm
 
-run-name: Release ${{ inputs.version || github.ref_name }} to npm${{ inputs.dry_run && ' (dry-run)' || '' }}
+run-name: ${{ inputs.latest_version && format('Set npm latest to {0}', inputs.latest_version) || format('Release {0} to npm{1}', inputs.version || github.ref_name, inputs.dry_run && ' (dry-run)' || '') }}
 
 on:
   push:
@@ -17,6 +17,10 @@ on:
         required: false
         type: boolean
         default: true
+      latest_version:
+        description: Existing npm version to assign to the latest dist-tag; skips the release job.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -26,7 +30,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  retag-latest:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.latest_version != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      TARGET_VERSION: ${{ inputs.latest_version }}
+
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Validate published version
+        shell: bash
+        run: |
+          if [[ ! "$TARGET_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid npm version: $TARGET_VERSION" >&2
+            exit 1
+          fi
+          PUBLISHED_VERSION="$(npm view "dsh-univer-office@$TARGET_VERSION" version --registry=https://registry.npmjs.org/)"
+          test "$PUBLISHED_VERSION" = "$TARGET_VERSION"
+
+      - name: Set npm latest dist-tag
+        run: npm dist-tag add "dsh-univer-office@$TARGET_VERSION" latest --registry=https://registry.npmjs.org/
+
+      - name: Verify npm latest dist-tag
+        shell: bash
+        run: |
+          LATEST_VERSION="$(npm view dsh-univer-office dist-tags.latest --registry=https://registry.npmjs.org/)"
+          test "$LATEST_VERSION" = "$TARGET_VERSION"
+
+      - name: Summary
+        run: |
+          echo "## npm latest dist-tag" >> "$GITHUB_STEP_SUMMARY"
+          echo "- package: dsh-univer-office" >> "$GITHUB_STEP_SUMMARY"
+          echo "- latest: $TARGET_VERSION" >> "$GITHUB_STEP_SUMMARY"
+
   release:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.latest_version == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
