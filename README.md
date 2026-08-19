@@ -72,11 +72,11 @@ Give the agent a topic, audience, page count, content outline, and visual direct
 ### Example requests
 
 ```text
-Analyze sales.xlsx, fix the date and currency columns, add monthly trends, a regional comparison chart, and a summary sheet, then deliver an xlsx file.
+Create a simple payroll spreadsheet with employee, base salary, bonus, deduction, gross pay, and net pay columns. Calculate the totals automatically.
 
-Turn brief.md into an eight-slide investor deck with a dark-blue visual system. Check every page for layout problems and export it as pptx.
+Create a six-slide lesson deck about bubble sort. Explain the concept, each comparison pass, pseudocode, and complexity, and check every page for layout problems.
 
-Convert meeting-notes.md into a formal weekly report with an executive summary, risk table, next-week plan, headers, and footers. Deliver a docx file.
+Create a formal weekly project report with an executive summary, this week's progress, a risk table, next week's plan, headers, and footers, then export it as docx.
 
 Create a customer-tracking Base with company, contact, stage, expected value, and next action fields, plus a view grouped by stage.
 
@@ -99,19 +99,21 @@ Every content type supports isolated worktree editing, review submission, reopen
 
 ### 1. Install the plugin
 
-Install from npm:
+If DSH is running, first press **Ctrl+C** in the terminal that started it. You can run the installation command while DSH is running, but the current DSH process will not load the new plugin automatically.
+
+Install the plugin from npm:
 
 ```sh
 dsh plugin --profile web add dsh-univer-office
 ```
 
-Or install the latest version directly from GitHub:
+Restart DSH after installation:
 
 ```sh
-dsh plugin --profile web add github:dream-num/dsh-univer-office
+dsh web
 ```
 
-After installation, refresh DeepSeek Harness with **Cmd+R / Ctrl+R**.
+After DSH starts successfully, refresh the existing DeepSeek Harness browser page with **Cmd+R / Ctrl+R**.
 
 ### 2. Describe the result you want
 
