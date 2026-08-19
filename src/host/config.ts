@@ -2,8 +2,8 @@ import z from '@deepseek-ai/schemastery'
 
 /** Configuration shared by the Univer service provider and its consumers. */
 export interface Config {
-  /** Candidate loopback ports used by the bundled Gateway. */
-  gatewayPorts?: number[]
+  /** Initial loopback port used by the bundled Gateway; occupied ports advance by one. */
+  gatewayPort?: number
   /** Start the bundled Gateway when file state is first requested. */
   autoStartGateway?: boolean
   /** Maximum time allowed for the bundled Gateway to become healthy. */
@@ -28,7 +28,7 @@ export interface Config {
 
 /** Fully resolved configuration used by the implementation. */
 export interface ResolvedConfig {
-  readonly gatewayPorts: readonly number[]
+  readonly gatewayPort: number
   readonly autoStartGateway: boolean
   readonly gatewayStartupTimeoutMs: number
   readonly gatewayRequestTimeoutMs: number
@@ -43,7 +43,7 @@ export interface ResolvedConfig {
 
 /** Cordis configuration schema. */
 export const Config: z<Config> = z.object({
-  gatewayPorts: z.array(z.natural().max(65535)).default([9123, 8000]),
+  gatewayPort: z.natural().max(65535).default(9080),
   autoStartGateway: z.boolean().default(true),
   gatewayStartupTimeoutMs: z.natural().default(10_000),
   gatewayRequestTimeoutMs: z.natural().default(3_000),
@@ -59,7 +59,7 @@ export const Config: z<Config> = z.object({
 /** Apply defaults and reject configuration that cannot run. */
 export function resolveConfig(config: Config = {}): ResolvedConfig {
   const resolved: ResolvedConfig = {
-    gatewayPorts: config.gatewayPorts ?? [9123, 8000],
+    gatewayPort: config.gatewayPort ?? 9080,
     autoStartGateway: config.autoStartGateway ?? true,
     gatewayStartupTimeoutMs: config.gatewayStartupTimeoutMs ?? 10_000,
     gatewayRequestTimeoutMs: config.gatewayRequestTimeoutMs ?? 3_000,
@@ -71,11 +71,8 @@ export function resolveConfig(config: Config = {}): ResolvedConfig {
     tools: config.tools ?? true,
     skills: config.skills ?? true,
   }
-  if (resolved.gatewayPorts.length === 0) throw new Error('univer: gatewayPorts must not be empty')
-  for (const port of resolved.gatewayPorts) {
-    if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-      throw new Error('univer: every Gateway port must be an integer between 1 and 65535')
-    }
+  if (!Number.isInteger(resolved.gatewayPort) || resolved.gatewayPort < 1 || resolved.gatewayPort > 65_535) {
+    throw new Error('univer: gatewayPort must be an integer between 1 and 65535')
   }
   for (const [name, value] of Object.entries({
     gatewayStartupTimeoutMs: resolved.gatewayStartupTimeoutMs,

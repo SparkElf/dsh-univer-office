@@ -21,22 +21,19 @@ const exported = join(workspace, "smoke.xlsx");
 await writeFile(source, "name,value\nalpha,1\nbeta,2\n");
 await writeFile(svgSource, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540"><rect width="960" height="540" fill="#f7f8fb"/><text x="80" y="160" font-family="Arial" font-size="54" fill="#182230">Bundled SVG</text></svg>');
 
-const foreign = createHttpServer((_request, response) => response.end("not a Univer Gateway"));
-await new Promise((resolve, reject) => {
-	foreign.once("error", reject);
-	foreign.listen(0, "127.0.0.1", resolve);
-});
-const foreignAddress = foreign.address();
-if (foreignAddress === null || typeof foreignAddress === "string") throw new Error("foreign server did not receive a TCP port");
-const port = await reservePort();
-const origin = `http://127.0.0.1:${port}`;
-const service = new GatewayUniverService(new Context(), resolveConfig({ gatewayPorts: [foreignAddress.port, port], tools: false }));
+const { foreign, occupiedPort, availablePort } = await occupyPortWithFreeSuccessor();
+const origin = `http://127.0.0.1:${availablePort}`;
+const service = new GatewayUniverService(new Context(), resolveConfig({ gatewayPort: occupiedPort, tools: false }));
 const scoped = { workspace, file };
 
 try {
 	const started = await service.ensureGateway();
 	if (!started.ok || started.gateway !== origin || started.reused !== false) {
 		throw new Error(`plugin failed to start bundled Gateway: ${JSON.stringify(started)}`);
+	}
+	const foreignResponse = await fetch(`http://127.0.0.1:${occupiedPort}`);
+	if (await foreignResponse.text() !== "not a Univer Gateway") {
+		throw new Error("plugin must not reuse or terminate the service occupying its initial port");
 	}
 	const reused = await service.ensureGateway();
 	if (!reused.ok || reused.gateway !== origin || reused.reused !== true) {
@@ -175,16 +172,39 @@ try {
 	await rm(scratch, { recursive: true, force: true });
 }
 
-async function reservePort() {
-	const server = createNetServer();
-	await new Promise((resolve, reject) => {
-		server.once("error", reject);
-		server.listen(0, "127.0.0.1", resolve);
-	});
-	const address = server.address();
-	if (address === null || typeof address === "string") throw new Error("failed to reserve a TCP port");
+async function occupyPortWithFreeSuccessor() {
+	for (let attempt = 0; attempt < 20; attempt += 1) {
+		const foreign = createHttpServer((_request, response) => response.end("not a Univer Gateway"));
+		await new Promise((resolve, reject) => {
+			foreign.once("error", reject);
+			foreign.listen(0, "127.0.0.1", resolve);
+		});
+		const address = foreign.address();
+		if (address === null || typeof address === "string") throw new Error("foreign server did not receive a TCP port");
+		if (address.port === 65_535) {
+			await closeServer(foreign);
+			continue;
+		}
+
+		const successor = createNetServer();
+		try {
+			await new Promise((resolve, reject) => {
+				successor.once("error", reject);
+				successor.listen(address.port + 1, "127.0.0.1", resolve);
+			});
+			await closeServer(successor);
+			return { foreign, occupiedPort: address.port, availablePort: address.port + 1 };
+		} catch {
+			// Another process owns the immediate successor; retry with a fresh dynamic pair.
+			await closeServer(foreign);
+		}
+	}
+	throw new Error("failed to reserve adjacent dynamic Gateway ports");
+}
+
+async function closeServer(server) {
+	if (!server.listening) return;
 	await new Promise((resolve, reject) => server.close((error) => error === undefined ? resolve() : reject(error)));
-	return address.port;
 }
 
 async function expectTransition(worktreeId, action, expectedStatus) {

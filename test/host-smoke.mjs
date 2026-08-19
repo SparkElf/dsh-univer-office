@@ -4,7 +4,16 @@ import { createServer } from 'node:http'
 import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createUniverRouter } from '../lib/index.js'
+import { createUniverRouter, resolveConfig } from '../lib/index.js'
+
+const defaultConfig = resolveConfig()
+if (defaultConfig.gatewayPort !== 9080) throw new Error(`default Gateway port must be 9080: ${JSON.stringify(defaultConfig)}`)
+try {
+  resolveConfig({ gatewayPort: 0 })
+  throw new Error('zero Gateway port must be rejected')
+} catch (error) {
+  if (!(error instanceof Error) || !error.message.includes('gatewayPort')) throw error
+}
 
 const WORKSPACE = await mkdtemp(join(tmpdir(), 'dsh-univer-host-smoke-'))
 const FILE = join(WORKSPACE, 'smoke.univer')

@@ -185,11 +185,11 @@ Agent 会自动选择对应 Skills 和 `univer_*` 工具。通常会依次创建
 
 ## 配置
 
-默认配置适合本地使用：Gateway 会在首次读取文件状态时自动启动，并依次尝试端口 `9123` 和 `8000`。如需定制，可在 bundle 的 Cordis 配置层设置：
+默认配置适合本地使用：Gateway 会在首次读取文件状态时从端口 `9080` 启动；若该端口被占用，则依次尝试 `9081`、`9082`。如需定制，可在 bundle 的 Cordis 配置层设置：
 
 | 字段 | 默认值 | 说明 |
 | --- | --- | --- |
-| `gatewayPorts` | `[9123, 8000]` | 内置 Gateway 尝试使用的本地端口 |
+| `gatewayPort` | `9080` | 内置 Gateway 的起始本地端口；被占用时逐次加一 |
 | `autoStartGateway` | `true` | 首次访问时自动启动 Gateway |
 | `gatewayStartupTimeoutMs` | `10000` | Gateway 启动超时 |
 | `gatewayRequestTimeoutMs` | `3000` | 状态读取超时 |

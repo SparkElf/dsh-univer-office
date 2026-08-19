@@ -40,7 +40,7 @@ export class GatewaySupervisor {
 
   private async start(): Promise<EnsureGatewayResult> {
     let failure = 'bundled Gateway did not start'
-    for (const port of this.config.gatewayPorts) {
+    for (let port = this.config.gatewayPort; port <= 65_535; port += 1) {
       const result = await this.process.start(port, this.config.gatewayStartupTimeoutMs, this.config.gatewayRequestTimeoutMs)
       if (result.ok) {
         this.ownedGateway = result.gateway
@@ -48,6 +48,7 @@ export class GatewaySupervisor {
         return result
       }
       failure = result.reason
+      if (!result.portInUse) break
     }
     this.lastFailure = failure
     return { ok: false, reason: failure }

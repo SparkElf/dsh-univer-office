@@ -185,11 +185,11 @@ The plugin also ships eight version-matched, lazily loaded skills: core orchestr
 
 ## Configuration
 
-The defaults are designed for local use: the Gateway starts on the first file-state request and tries ports `9123` and `8000` in order. Configure the bundle's Cordis layer when you need different values:
+The defaults are designed for local use: the Gateway starts on the first file-state request at `9080`. If that port is occupied, it tries `9081`, then continues upward one port at a time. Configure the bundle's Cordis layer when you need different values:
 
 | Field | Default | Purpose |
 | --- | --- | --- |
-| `gatewayPorts` | `[9123, 8000]` | Candidate loopback ports for the bundled Gateway |
+| `gatewayPort` | `9080` | Initial loopback port for the bundled Gateway; occupied ports advance by one |
 | `autoStartGateway` | `true` | Start the Gateway on first use |
 | `gatewayStartupTimeoutMs` | `10000` | Gateway startup timeout |
 | `gatewayRequestTimeoutMs` | `3000` | State-read timeout |

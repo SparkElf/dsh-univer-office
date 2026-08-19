@@ -1,15 +1,22 @@
 import { spawn } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
 import type { EnsureGatewayResult } from '../../../shared/wire/status.ts'
+import { GATEWAY_PORT_IN_USE_EXIT_CODE } from '../../../shared/gateway-process-protocol.ts'
 import { gatewayLaunch } from './launcher.ts'
 import { gatewayIsHealthy } from './protocol.ts'
+
+type GatewayProcessStartResult = Extract<EnsureGatewayResult, { readonly ok: true }> | {
+  readonly ok: false
+  readonly reason: string
+  readonly portInUse: boolean
+}
 
 /** One plugin-owned Gateway child process. */
 export class GatewayProcess {
   private child: ChildProcess | null = null
 
   /** Start on one port and wait until the Viewer health endpoint responds. */
-  async start(port: number, startupTimeoutMs: number, probeTimeoutMs: number): Promise<EnsureGatewayResult> {
+  async start(port: number, startupTimeoutMs: number, probeTimeoutMs: number): Promise<GatewayProcessStartResult> {
     const launch = gatewayLaunch(port)
     const child = spawn(launch.command, [...launch.args], launch.options)
     this.child = child
@@ -24,8 +31,15 @@ export class GatewayProcess {
     while (Date.now() - startedAt < startupTimeoutMs) {
       if (child.exitCode !== null || child.signalCode !== null) {
         if (this.child === child) this.child = null
+        const portInUse = child.exitCode === GATEWAY_PORT_IN_USE_EXIT_CODE
         const detail = stderr.trim()
-        return { ok: false, reason: detail || `bundled Gateway exited (${String(child.signalCode ?? child.exitCode ?? 'unknown')})` }
+        return {
+          ok: false,
+          reason: portInUse
+            ? `Gateway port ${String(port)} is already in use`
+            : detail || `bundled Gateway exited (${String(child.signalCode ?? child.exitCode ?? 'unknown')})`,
+          portInUse,
+        }
       }
       await new Promise<void>((resolve) => setTimeout(resolve, 200))
       if (child.exitCode !== null || child.signalCode !== null) continue
@@ -33,7 +47,7 @@ export class GatewayProcess {
     }
 
     await this.stop()
-    return { ok: false, reason: `bundled Gateway did not become ready within ${String(startupTimeoutMs)}ms` }
+    return { ok: false, reason: `bundled Gateway did not become ready within ${String(startupTimeoutMs)}ms`, portInUse: false }
   }
 
   /** Stop only the child process this instance created. */
