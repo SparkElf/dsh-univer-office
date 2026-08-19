@@ -55,6 +55,49 @@ if (
 	throw new Error("bundled Slide skill is missing proactive generation guidance");
 }
 
+const chartContracts = [
+	{
+		name: "univer-board",
+		owner: "FBoard.newChart",
+		insert: "await board.insertChart(info)",
+		read: "board.getCharts()",
+		stale: ["board.charts", "FBoardCharts", "setData(values).commit()"],
+	},
+	{
+		name: "univer-doc",
+		owner: "FDocument.newChart",
+		insert: "await doc.insertChart(info)",
+		read: "doc.getCharts()",
+		stale: [
+			"doc.charts",
+			"FDocumentCharts",
+			"univerAPI.Enum.DocChartInsertAnchorKind",
+			"setData(values).commit()",
+		],
+	},
+	{
+		name: "univer-slide",
+		owner: "FSlide",
+		insert: "await slide.insertChart(info)",
+		read: "slide.getCharts()",
+		stale: ["slide.charts", "FSlideCharts", "setData(values).commit()"],
+	},
+];
+for (const contract of chartContracts) {
+	const skill = await ctx.skills.get(contract.name);
+	if (
+		skill === undefined ||
+		contract.stale.some((api) => skill.content.includes(api)) ||
+		!skill.content.includes(contract.owner) ||
+		!skill.content.includes(contract.insert) ||
+		!skill.content.includes(contract.read) ||
+		!skill.content.includes("chart.setDataSource(values)") ||
+		!skill.content.includes("await chart.remove()")
+	) {
+		throw new Error(`bundled Chart skill uses a stale Facade contract: ${contract.name}`);
+	}
+}
+
 for (const topic of ["univer-embed", "univer-cross-unit-formula"]) {
 	const skill = await ctx.skills.get(topic);
 	if (skill === undefined || !skill.content.includes("univer_execute")) {

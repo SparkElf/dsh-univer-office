@@ -13,7 +13,8 @@ Facade page indexes are zero-based (`getSlideByIndex`, `getSlides()[i]`). Tool p
 
 - Create or redesign a page: author SVG and call `univer_compile_svg`. Do not hand-write Facade drawing calls for generated page content.
 - Edit existing content: use `univer_execute` with live Facade handles.
-- Insert or update native charts: reserve the rectangle in the page SVG, then use `slide.charts` through `univer_execute`.
+- Insert or update native charts: reserve the rectangle in the page SVG, then use the direct
+  `FSlide` chart methods through `univer_execute`.
 - Verify every changed page: `univer_inspect`, then `univer_lint`, then review the live DSH preview.
 - Export only after verification: `univer_export` to `.pptx`.
 
@@ -197,17 +198,15 @@ The reorder command requires the complete order. A partial list moves listed ele
 
 ## Native charts
 
-Create charts through `slide.charts`. Build detached, configure data and geometry, then await insertion:
+Create detached chart information directly from the slide, call `.build()`, then await
+`slide.insertChart(info)` to obtain a live `FSlideChart`:
 
 ```js
 const slide = presentation.getSlideByIndex(0);
-const charts = slide.charts;
-const chart = charts
-  .create()
-  .setType(univerAPI.Enum.ChartTypeString.Donut)
-  .setTitle({ text: "Design Elements" });
-chart
-  .setData([
+const info = slide
+  .newChart(univerAPI.Enum.ChartTypeString.Donut)
+  .setTitle({ text: "Design Elements" })
+  .setSource([
     ["Design element", "Share"],
     ["Color", 30],
     ["Composition", 22],
@@ -217,12 +216,19 @@ chart
   .setDoughnutHole(0.46)
   .setLegend(true)
   .setAbsolutePosition(390, 160)
-  .setSize(260, 220);
-const inserted = await charts.insert(chart);
-return { chartId: inserted.getId(), chart: inserted.describe() };
+  .setSize(260, 220)
+  .build();
+const inserted = await slide.insertChart(info);
+return { chartId: inserted.getId(), info: inserted.getInfo(), resource: inserted.getChartData() };
 ```
 
-Update a host-bound chart with `setData(values).commit()`. Remove with `await charts.remove(chartOrId)` and check the boolean. Verify in a fresh execution with `slide.charts.list().map((item) => item.describe())`. Insert charts after the final full-page SVG replacement, because replacement clears every page element.
+`slide.getCharts()` and `slide.getChart(id)` return live charts. Await
+`chart.setDataSource(values)` for data changes. Common setters update the live chart; for a complete
+replacement, use `chart.toBuilder().build()` and `await chart.update(info)`. Remove it with
+`await chart.remove()` and check the boolean. Verify in a fresh execution with
+`slide.getCharts().map((item) => ({ id: item.getId(), type: item.getType(), info: item.getInfo(), resource: item.getChartData() }))`.
+Insert charts after the final full-page SVG replacement, because replacement clears every page
+element.
 
 ## Transitions
 

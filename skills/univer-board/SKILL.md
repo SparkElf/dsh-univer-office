@@ -7,7 +7,9 @@ description: Create, edit, chart, inspect, and review Univer Board canvas Units 
 
 Load `univer` first. Create the Board with `univer_unit` in a draft worktree and retain its `unitId`. `univer_execute` provides `univerAPI`, `api`, and the selected `FBoard` as `board`; do not redeclare them.
 
-Resolve exact methods with `univer_api`, especially `FBoard.insertShape`, `FBoard.insertShapes`, `FShape`, connector methods, and `FBoardCharts`.
+Resolve exact methods with `univer_api`, especially `FBoard.insertShape`, `FBoard.insertShapes`,
+`FShape`, connector methods, `FBoard.newChart`, `FBoard.insertChart`, `FBoard.getCharts`, and
+`FBoard.getChart`.
 
 ```js
 const shape = board.insertShape({
@@ -73,15 +75,14 @@ Do not use Unicode glyphs as a substitute for required icons or illustrations. D
 
 ## Native charts
 
-Native Board charts use `board.charts` (`FBoardCharts`). Build a detached chart, configure its data and canvas geometry, then await insertion:
+Native Board charts are owned directly by `FBoard`. Build detached chart information, then await
+insertion to obtain a live `FBoardChart`:
 
 ```js
-const charts = board.charts;
-const chart = charts
-  .create()
-  .setType(univerAPI.Enum.ChartTypeString.Column)
+const info = board
+  .newChart(univerAPI.Enum.ChartTypeString.Column)
   .setTitle({ text: "Quarterly Revenue" })
-  .setData([
+  .setSource([
     ["Quarter", "Revenue"],
     ["Q1", 12],
     ["Q2", 18],
@@ -89,15 +90,22 @@ const chart = charts
   ])
   .setCategoryField(0)
   .setValueFields([1])
-  .setPosition(80, 80)
-  .setSize(640, 360);
-const inserted = await charts.insert(chart);
-return { chartId: inserted.getId(), chart: inserted.describe() };
+  .setAbsolutePosition(80, 80)
+  .setSize(640, 360)
+  .build();
+const inserted = await board.insertChart(info);
+return { chartId: inserted.getId(), info: inserted.getInfo(), data: inserted.getDataSource() };
 ```
 
-Builders returned by `charts.list()` or `charts.get(id)` are host-bound. Update with `setData(values).commit()`. Remove with `await charts.remove(chartOrId)` and check the boolean. Await insert/remove before execution returns.
+`board.getCharts()` and `board.getChart(id)` return live charts. Common setters update the live
+chart; await `chart.setDataSource(values)` for data changes. For a complete replacement, use
+`chart.toBuilder().build()` and `await chart.update(info)`. Remove it with `await chart.remove()`
+and check the boolean. Await insertion, data updates, replacement, and removal before execution
+returns.
 
-Verify in a later read-only execution with `board.charts.list().map((item) => item.describe())`, confirming ID, count, type, title, position, size, and data.
+Verify in a later read-only execution with
+`board.getCharts().map((item) => ({ id: item.getId(), type: item.getType(), info: item.getInfo(), data: item.getDataSource() }))`,
+confirming ID, count, type, title, position, size, and data.
 
 ## Verification
 
