@@ -16,7 +16,8 @@ Select paragraphs with `doc.getParagraphs()` and `doc.getParagraph(paragraphId)`
 - Paragraph IDs are stable across multi-step edits; indexes drift as content changes.
 - `FDocumentParagraph` supports `getText`, `setText`, `appendText`, `setStyle`, and `getRange`.
 - Lists and task helpers include `isListItem`, `isTask`, and `setTaskChecked`.
-- Native charts use the document-owned `doc.charts` collection.
+- Native charts use the direct `doc.newChart()`, `doc.insertChart()`, `doc.getCharts()`, and
+  `doc.getChart()` methods.
 - Colors must use `#RRGGBB`. Docs do not support formulas or recalculation.
 
 ## Data stream
@@ -105,16 +106,15 @@ Constrain cell-local paragraph edits with `table.getCellContentRange(row, column
 
 ## Native charts
 
-Create and manage data-driven charts through `doc.charts`. Query `FDocumentCharts`, `FDocumentChartBuilder`, and `DocChartInsertAnchorKind` before authoring.
+Create detached chart information directly from `doc`, then insert it to obtain a live
+`FDocumentChart`. Query `FDocument.newChart`, `FDocument.insertChart`, `FDocument.getCharts`,
+`FDocument.getChart`, `FDocumentChartBuilderOf`, and `DocsChartInsertAnchorKind` before authoring.
 
 ```js
-const charts = doc.charts;
-const chart = charts
-  .create()
-  .setType(univerAPI.Enum.ChartTypeString.Column)
-  .setTitle({ text: "Quarterly Revenue" });
-chart
-  .setData([
+const info = doc
+  .newChart(univerAPI.Enum.ChartTypeString.Column)
+  .setTitle({ text: "Quarterly Revenue" })
+  .setSource([
     ["Quarter", "Revenue"],
     ["Q1", 12],
     ["Q2", 18],
@@ -122,13 +122,20 @@ chart
   ])
   .setCategoryField(0)
   .setValueFields([1])
-  .setAnchor({ kind: univerAPI.Enum.DocChartInsertAnchorKind.BodyOffset, offset: 0 })
-  .setLayout({ width: 480, height: 320 });
-const inserted = await charts.insert(chart);
-return { chartId: inserted.getId(), chart: inserted.describe() };
+  .setPosition({ kind: univerAPI.Enum.DocsChartInsertAnchorKind.BodyOffset, offset: 0 })
+  .setInline()
+  .setSize(480, 320)
+  .build();
+const inserted = await doc.insertChart(info);
+return { chartId: inserted.getId(), drawingId: inserted.getDrawingId(), info: inserted.getInfo() };
 ```
 
-Update a bound builder with `setData(values).commit()`. Remove with `await charts.remove(chartOrId)` and check the boolean. Await insertion/removal before execution returns. Verify in a fresh read-only execution with `doc.charts.list().map((item) => item.describe())`.
+`doc.getCharts()` and `doc.getChart(id)` return live charts. Await
+`chart.setDataSource(values)` for data changes. For a complete replacement, use
+`chart.toBuilder().build()` and `await chart.update(info)`. Remove it with `await chart.remove()`
+and check the boolean. Await every asynchronous mutation before execution returns. Verify in a
+fresh read-only execution with
+`doc.getCharts().map((item) => ({ id: item.getId(), drawingId: item.getDrawingId(), type: item.getType(), info: item.getInfo() }))`.
 
 ## Inspect and verify
 
