@@ -13,7 +13,7 @@ export const UNIT_CONTENT_WORKER_ENTRY = fileURLToPath(new URL('../artifacts/uni
 /** Bundled machine-facing page used for layout analysis and text measurement. */
 export const RENDER_MACHINE_ROOT = fileURLToPath(new URL('../artifacts/render-machine/', import.meta.url))
 
-// The worker and gateway resolve their native dependencies (@univerjs-pro/uexcli,
+// The worker and gateway resolve their native dependencies (@univerjs-pro/exchange-node-binding,
 // engine-formula-rust-binding, libsql) through this plugin's own node_modules,
 // which npm populates from the declared runtime dependencies. This mirrors the
 // univer-cli model: binaries come from the registry instead of being copied into this package.

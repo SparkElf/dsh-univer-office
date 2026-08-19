@@ -21,7 +21,7 @@ const nativePackages = [
 ];
 const runtimePackages = [
 	"@univerjs-pro/engine-formula-rust-binding",
-	"@univerjs-pro/uexcli",
+	"@univerjs-pro/exchange-node-binding",
 	"@univerjs-pro/cli-assets",
 ];
 

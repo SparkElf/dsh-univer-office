@@ -38,7 +38,7 @@ const external = [
   '@deepseek-ai/schemastery',
   // Large / binary packages: never inlined, declared as runtime dependencies
   'libsql',
-  '@univerjs-pro/uexcli',
+  '@univerjs-pro/exchange-node-binding',
   '@univerjs-pro/engine-formula-rust-binding',
   '@univerjs-pro/cli-assets',
   '@puppeteer/browsers',
@@ -91,7 +91,7 @@ if (target === 'all' || target === 'worker') {
     ...builtinModules,
     '@univerjs-pro/cli-assets',
     '@univerjs-pro/engine-formula-rust-binding',
-    '@univerjs-pro/uexcli',
+    '@univerjs-pro/exchange-node-binding',
     'libsql',
   ]
   await build({
@@ -117,7 +117,7 @@ if (target === 'all' || target === 'gateway') {
     ...builtinModules.map((id) => `node:${id}`),
     ...builtinModules,
     'libsql',
-    '@univerjs-pro/uexcli',
+    '@univerjs-pro/exchange-node-binding',
     '@univerjs-pro/engine-formula-rust-binding',
     '@univerjs-pro/cli-assets',
   ]

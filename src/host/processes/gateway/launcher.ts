@@ -17,7 +17,7 @@ export function gatewayLaunch(port: number): { readonly command: string; readonl
         UNIVER_COLLAB_GATEWAY_PORT: String(port),
         UNIVER_VIEW_ASSETS_ROOT: VIEWER_ROOT,
         // Let the gateway and worker resolve their native dependencies
-        // (@univerjs-pro/uexcli, engine-formula-rust-binding, libsql) from this
+        // (@univerjs-pro/exchange-node-binding, engine-formula-rust-binding, libsql) from this
         // plugin's node_modules; the formula binding package resolves its own
         // platform binary (no NAPI_RS_NATIVE_LIBRARY_PATH override needed).
         NODE_PATH: [PLUGIN_NODE_MODULES, process.env.NODE_PATH].filter((value): value is string => value !== undefined && value.length > 0).join(delimiter),

@@ -76,8 +76,8 @@ function unitContentWorkerEnvironment(): NodeJS.ProcessEnv {
     const value = process.env[key]
     return value === undefined ? [] : [[key, value]]
   }))
-  // Let the worker resolve its native dependencies (@univerjs-pro/engine-formula-
-  // rust-binding and platform sub-packages) from this plugin's node_modules.
+  // Let the worker resolve its native dependencies (@univerjs-pro/exchange-node-binding,
+  // engine-formula-rust-binding, and platform sub-packages) from this plugin's node_modules.
   env.NODE_PATH = [PLUGIN_NODE_MODULES, process.env.NODE_PATH].filter((value): value is string => value !== undefined && value.length > 0).join(delimiter)
   return env
 }
