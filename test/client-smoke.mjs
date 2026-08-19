@@ -56,7 +56,9 @@ const ZH_FULL_DEFAULT_UNIT_URL = withLang(asReviewPage(DEFAULT_UNIT_URL), 'zh-CN
 const EN_FULL_DEFAULT_UNIT_URL = withLang(asReviewPage(DEFAULT_UNIT_URL), 'en-US')
 const ZH_FULL_DEFAULT_MERGE_URL = withLang(asReviewPage(DEFAULT_MERGE_URL), 'zh-CN')
 const ZH_TRUNK_URL = withLang(asReviewPage(TRUNK_URL), 'zh-CN')
+const ZH_LIVE_TRUNK_URL = withLang(TRUNK_URL, 'zh-CN')
 let worktrees = []
+const missingFiles = new Set()
 const wt = (status, worktreeId = WORKTREE) => ({
   worktreeId,
   name: worktreeId === WORKTREE ? 'v3smoke' : 'other',
@@ -83,6 +85,11 @@ const server = createServer(async (req, res) => {
       return
     }
     stateRequests.push(file)
+    if (file !== null && missingFiles.has(file)) {
+      res.writeHead(400, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, code: 'INVALID_FILE_PATH', message: 'path does not exist' }))
+      return
+    }
     if (file !== DEMO_FILE && file !== REL_DEMO_FILE && file !== SECOND_FILE) {
       res.writeHead(404).end()
       return
@@ -196,51 +203,68 @@ if (dockEntry === undefined) throw new Error('dock entry missing: ' + slotEntrie
 if (tailEntry === undefined) throw new Error('turn-tail entry missing (existing preview card must stay registered)')
 if ('id' in tailEntry.options) throw new Error('chain entries must not declare a list-slot id')
 if (localeDicts === null || localeDicts.ns !== 'univer') throw new Error('locale dictionaries not registered')
-if (conversationDefinition === null || conversationDefinition.kind !== 'univerTarget') throw new Error('conversationEvents definition not registered')
+if (conversationDefinition === null || conversationDefinition.kind !== 'univerTurn') throw new Error('conversationEvents definition not registered')
 if (dockEntry.options.locale !== 'univer' || tailEntry.options.locale !== 'univer') throw new Error('both UI entries must declare the Univer locale namespace')
 const dockInjected = dockEntry.options.inject()
 const tailInjected = tailEntry.options.inject()
 if (typeof dockInjected.getViewerLocale !== 'function' || typeof tailInjected.getViewerLocale !== 'function') throw new Error('Viewer locale getter missing')
 {
-  const selected = tailEntry.options.select({ turn: { turn: 3, data: { get: () => ({ targets: [{ file: '/tmp/demo.univer', worktreeId: WORKTREE }] }) } } })
-  if (selected?.turn !== 3 || selected.targets.length !== 1) throw new Error('turn-tail selector must preserve the owning Turn for review placement')
+  const selected = tailEntry.options.select({ turn: { turn: 3, data: { get: () => ({ files: [{ file: '/tmp/demo.univer', operations: [] }] }) } } })
+  if (selected?.turn !== 3 || selected.files.length !== 1) throw new Error('turn-tail selector must preserve the owning Turn for review placement')
 }
 
-// ---- definition pure-accumulator sanity (replay-safe, unchanged behavior) ----
+// ---- definition pure-accumulator sanity: reads never erase a ready transition ----
 {
   const def = conversationDefinition
-  const mkContext = (state) => ({ state, key: '', kind: 'univerTarget', id: '7', matches: [], start: undefined, current: new Map() })
+  const mkContext = (state) => ({ state, key: '', kind: 'univerTurn', id: '7', matches: [], start: undefined, current: new Map() })
   const startMatch = { id: '7', role: 'start', event: { type: 'turn/start', data: { turn: 7 } }, location: { kind: 'turn', turn: 7 } }
   let state = def.start({ state: undefined }, startMatch, { previous: () => undefined })
-  if (state.turn !== 7 || state.targets.length !== 0) throw new Error('definition start state wrong')
-  const univerCall = {
+  if (state.turn !== 7 || state.files.length !== 0) throw new Error('definition start state wrong')
+  const readyCall = {
     id: '7', role: 'update', location: { kind: 'turn', turn: 7 },
-    event: { type: 'tool/call', data: { turn: 7, name: 'univer_execute', arguments: JSON.stringify({ file: '/x/proj/notes/demo.univer', worktreeId: 'wt-abc12345', unitId: 'unit-1', code: 'return null;' }) } },
+    event: { type: 'tool/call', data: { turn: 7, step: 1, callId: 'call-ready', name: 'univer_worktree', arguments: JSON.stringify({ action: 'ready', file: '/x/proj/notes/demo.univer', worktreeId: 'wt-abc12345' }) } },
   }
-  state = def.update(mkContext(state), univerCall)
-  if (state.targets.length !== 1 || state.targets[0].file !== '/x/proj/notes/demo.univer' || state.targets[0].worktreeId !== 'wt-abc12345') throw new Error('structured target extraction wrong: ' + JSON.stringify(state.targets))
-  const univerResult = {
+  state = def.update(mkContext(state), readyCall)
+  const readyResult = {
     id: '7', role: 'update', location: { kind: 'turn', turn: 7 },
-    event: { type: 'tool/result', data: { turn: 7, step: 1, message: { content: [{ type: 'tool-result', content: [{ type: 'text', text: JSON.stringify({ file: '/x/proj/notes/result.univer', result: { worktreeId: 'wt-result-1234' } }) }] }] } } },
+    event: { type: 'tool/result', data: { turn: 7, step: 1, message: { content: [{ type: 'tool-result', toolCallId: 'call-ready', content: [{ type: 'text', text: JSON.stringify({ operation: 'worktree', file: '/x/proj/notes/demo.univer', result: { action: 'ready', worktreeId: 'wt-abc12345' } }) }] }] } } },
   }
-  state = def.update(mkContext(state), univerResult)
-  if (state.targets.length !== 2 || state.targets[1].file !== '/x/proj/notes/result.univer' || state.targets[1].worktreeId !== 'wt-result-1234') throw new Error('typed tool-result extraction wrong: ' + JSON.stringify(state.targets))
+  state = def.update(mkContext(state), readyResult)
   const laterStatus = {
     id: '7', role: 'update', location: { kind: 'turn', turn: 7 },
-    event: { type: 'tool/call', data: { turn: 7, name: 'univer_status', arguments: JSON.stringify({ file: '/x/proj/notes/result.univer' }) } },
+    event: { type: 'tool/call', data: { turn: 7, step: 1, callId: 'call-status', name: 'univer_status', arguments: JSON.stringify({ file: '/x/proj/notes/demo.univer' }) } },
   }
   state = def.update(mkContext(state), laterStatus)
-  if (state.targets[1].worktreeId !== 'wt-result-1234') throw new Error('a later file-only tool call must preserve the recovered worktreeId')
+  if (state.files[0].operations.length !== 2 || state.files[0].operations[0].action !== 'ready') throw new Error('later reads must preserve ready operation semantics')
   const locationData = def.buildLocationData(mkContext(state), 'turn')
-  if (locationData === null || locationData.key !== 'univerTarget' || locationData.value.targets.length !== 2) throw new Error('buildLocationData wrong')
+  if (locationData === null || locationData.key !== 'univerTurn' || locationData.value.files.length !== 1) throw new Error('buildLocationData wrong')
 }
 
 // ---- render harness ----
 const t = (key) => localeDicts.dicts[activeLocale][key] ?? key
+let callSequence = 0
+const operation = (name, worktreeId, action = null, unitId = null, phase = 'succeeded') => ({
+  callId: `fixture-${++callSequence}`,
+  name,
+  action,
+  file: DEMO_FILE,
+  worktreeId,
+  unitId,
+  phase,
+})
+const turnFile = (file, worktreeId = null, name = worktreeId === null ? 'status' : 'execute', action = null, phase = 'succeeded') => ({
+  file,
+  operations: [{ ...operation(name, worktreeId, action, null, phase), file }],
+})
 const sessionWithTargets = (targets, running) => ({
   sessionId: 'test-session-id',
   running,
-  chat: { timeline: { turns: new Map([[3, { data: { get: (key) => (key === 'univerTarget' ? { targets } : undefined) } }]]) } },
+  chat: { timeline: { turns: new Map([[3, { data: { get: (key) => (key === 'univerTurn' ? { files: targets.map((target) => turnFile(target.file, target.worktreeId)) } : undefined) } }]]) } },
+})
+const sessionWithFiles = (files, running, turns = new Map()) => ({
+  sessionId: 'test-session-id',
+  running,
+  chat: { timeline: { turns: new Map([...turns, [3, { data: { get: (key) => (key === 'univerTurn' ? { files } : undefined) } }]]) } },
 })
 const rootEl = document.createElement('div')
 document.body.appendChild(rootEl)
@@ -263,7 +287,7 @@ function render(session, remount = true) {
   }))
   reviewRoot.render(React.createElement(tailEntry.Component, {
     key: 's' + scenario,
-    matched: { turn: 3, targets: session.chat.timeline.turns.get(3)?.data.get('univerTarget')?.targets ?? [] },
+    matched: { turn: 3, files: session.chat.timeline.turns.get(3)?.data.get('univerTurn')?.files ?? [] },
     t,
     getViewerLocale: tailInjected.getViewerLocale,
     sessionId: 'test-session-id',
@@ -288,7 +312,7 @@ document.body.appendChild(tailRootEl)
 const tailRoot = createRoot(tailRootEl)
 worktrees = [wt('draft')]
 const tailProps = {
-  matched: { turn: 3, targets: [{ file: DEMO_FILE, worktreeId: WORKTREE }] },
+  matched: { turn: 3, files: [turnFile(DEMO_FILE, WORKTREE)] },
   sessionId: 'test-session-id',
   t,
   getViewerLocale: tailInjected.getViewerLocale,
@@ -296,62 +320,65 @@ const tailProps = {
   useSessions: (selector) => selector({ byId: { 'test-session-id': { cwd: SESSION_CWD } } }),
 }
 tailRoot.render(React.createElement(tailEntry.Component, tailProps))
-await waitFor('回合尾部预览卡片', () => q('.unvT_expandBtn') !== null)
-await waitFor('卡片显示 worktree 名称', () => q('.unvT_wt')?.textContent === 'v3smoke')
-if ((q('.unvT_title')?.textContent ?? '').includes(WORKTREE)) throw new Error('preview card must not expose the raw worktreeId')
-q('.unvT_expandBtn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
-await waitFor('中文完整 Viewer 页面', () => q('.unvT_frame')?.getAttribute('src') === ZH_OPEN_URL)
-const tailFrame = q('.unvT_frame')
+await waitFor('回合尾部统一卡片', () => tailRootEl.querySelector('.uvf_panel') !== null)
+await waitFor('卡片显示 worktree 名称', () => tailRootEl.querySelector('.uvf_panelWorktree')?.textContent === 'v3smoke')
+await waitFor('中文完整 Viewer 页面', () => tailRootEl.querySelector('.uvf_panelFrame')?.getAttribute('src') === ZH_FULL_DEFAULT_UNIT_URL)
+const tailFrame = tailRootEl.querySelector('.uvf_panelFrame')
 activeLocale = 'en'
 localeRevision += 1
 tailRoot.render(React.createElement(tailEntry.Component, tailProps))
-await waitFor('预览卡片切换英文', () => q('.unvT_expandBtn')?.textContent.includes('Collapse') === true && q('.unvT_frame')?.getAttribute('title') === 'Univer Preview')
-if (q('.unvT_frame') !== tailFrame) throw new Error('locale switch must update the existing standalone Viewer iframe')
-if (q('.unvT_frame')?.getAttribute('src') !== EN_OPEN_URL) throw new Error('standalone Viewer must receive en-US after DSH switches to English')
+await waitFor('统一卡片切换英文', () => tailRootEl.querySelector('.uvf_panelFrame')?.getAttribute('src') === EN_FULL_DEFAULT_UNIT_URL)
+if (tailRootEl.querySelector('.uvf_panelFrame') !== tailFrame) throw new Error('locale switch must update the existing Viewer iframe')
 activeLocale = 'zh'
 localeRevision += 1
 tailRoot.render(React.createElement(tailEntry.Component, tailProps))
-await waitFor('预览卡片切回中文', () => q('.unvT_frame')?.getAttribute('src') === ZH_OPEN_URL && q('.unvT_frame')?.getAttribute('title') === 'Univer 预览')
+await waitFor('统一卡片切回中文', () => tailRootEl.querySelector('.uvf_panelFrame')?.getAttribute('src') === ZH_FULL_DEFAULT_UNIT_URL)
 
 // A relative tool-call path and the absolute tool-result path identify one file and one card.
 tailRoot.render(React.createElement(tailEntry.Component, {
   ...tailProps,
-  matched: { turn: 3, targets: [
-    { file: 'work_班级成绩表/班级管理.univer', worktreeId: null },
-    { file: REL_DEMO_FILE, worktreeId: WORKTREE },
+  matched: { turn: 3, files: [
+    turnFile('work_班级成绩表/班级管理.univer'),
+    turnFile(REL_DEMO_FILE, WORKTREE),
   ] },
 }))
-await waitFor('相对路径和绝对路径去重为一张卡片', () => qa('.unvT_card').length === 1 && q('.unvT_path')?.textContent === REL_DEMO_FILE)
-if (q('.unvT_chip') !== null) throw new Error('file-switch chips must not exist in one-file-per-card UI')
+await waitFor('相对路径和绝对路径去重为一张卡片', () => tailRootEl.querySelectorAll('.uvf_panel').length === 1 && tailRootEl.querySelector('.uvf_panelMeta')?.textContent === REL_DEMO_FILE)
 
 // Distinct files touched in one turn each receive their own card.
 tailRoot.render(React.createElement(tailEntry.Component, {
   ...tailProps,
-  matched: { turn: 3, targets: [
-    { file: DEMO_FILE, worktreeId: WORKTREE },
-    { file: SECOND_FILE, worktreeId: null },
+  matched: { turn: 3, files: [
+    turnFile(DEMO_FILE, WORKTREE),
+    turnFile(SECOND_FILE),
   ] },
 }))
-await waitFor('同一回合的两个文件分别显示卡片', () => qa('.unvT_card').length === 2)
-const previewPaths = qa('.unvT_path').map((element) => element.textContent)
+await waitFor('同一回合的两个文件分别显示卡片', () => tailRootEl.querySelectorAll('.uvf_panel').length === 2)
+const previewPaths = Array.from(tailRootEl.querySelectorAll('.uvf_panelMeta')).map((element) => element.textContent)
 if (previewPaths.join('|') !== `${DEMO_FILE}|${SECOND_FILE}`) throw new Error('preview cards must preserve file order: ' + previewPaths.join(','))
+
+// A temporary Univer file deleted later in the same Turn must lose its card instead of loading forever.
+missingFiles.add(SECOND_FILE)
+await waitFor('回合结束前已删除的临时文件不显示卡片', () => {
+  const panels = Array.from(tailRootEl.querySelectorAll('.uvf_panel'))
+  return panels.length === 1 && panels[0]?.querySelector('.uvf_panelMeta')?.textContent === DEMO_FILE
+})
+missingFiles.delete(SECOND_FILE)
 
 // A worktree touched again in a newer turn leaves the current review-card header behind.
 const historicalSession = {
   sessionId: 'test-session-id',
   running: false,
   chat: { timeline: { turns: new Map([
-    [3, { data: { get: (key) => (key === 'univerTarget' ? { targets: [{ file: DEMO_FILE, worktreeId: WORKTREE }] } : undefined) } }],
-    [4, { data: { get: (key) => (key === 'univerTarget' ? { targets: [{ file: DEMO_FILE, worktreeId: WORKTREE }] } : undefined) } }],
+    [3, { data: { get: (key) => (key === 'univerTurn' ? { files: [turnFile(DEMO_FILE, WORKTREE)] } : undefined) } }],
+    [4, { data: { get: (key) => (key === 'univerTurn' ? { files: [turnFile(DEMO_FILE, WORKTREE)] } : undefined) } }],
   ]) } },
 }
 tailRoot.render(React.createElement(tailEntry.Component, {
   ...tailProps,
-  matched: { turn: 3, targets: [{ file: DEMO_FILE, worktreeId: WORKTREE }] },
+  matched: { turn: 3, files: [turnFile(DEMO_FILE, WORKTREE)] },
   useSession: (selector) => selector(historicalSession),
 }))
 await waitFor('旧回合保留新版审阅 header', () => tailRootEl.querySelector('.uvf_panel_history') !== null)
-if (tailRootEl.querySelector('.unvT_card') !== null) throw new Error('an older worktree turn must not fall back to the legacy preview card')
 await waitFor('历史 header 显示 worktree 名称', () => tailRootEl.querySelector('.uvf_panelWorktree')?.textContent === 'v3smoke')
 if (tailRootEl.querySelector('.uvf_panelMeta')?.textContent !== DEMO_FILE) throw new Error('historical review header must show only the full file path')
 tailRoot.unmount()
@@ -362,14 +389,42 @@ worktrees = [wt('draft')]
 render(sessionWithTargets([], false))
 await waitFor('no UI without targets', () => q('.uvf_root') === null && q('.uvf_panel') === null)
 
+// ---- scenario 0a: new opens a trunk window; reads alone do not open one ----
+worktrees = []
+render(sessionWithFiles([turnFile(DEMO_FILE, null, 'new')], true))
+await waitFor('new 主动拉起当前版本浮窗', () => q('.uvf_win') !== null && q('.uvf_frame')?.getAttribute('src') === ZH_LIVE_TRUNK_URL)
+if (q('.uvf_chip')?.getAttribute('data-status') !== 'trunk') throw new Error('new window must identify the current version')
+render(sessionWithFiles([turnFile(DEMO_FILE, null, 'status')], true))
+await waitFor('纯读取不主动拉起浮窗', () => q('.uvf_win') === null)
+
+// ---- scenario 0aa: an open non-terminal worktree resumes in the next Turn ----
+worktrees = [wt('draft')]
+const persistentFiles = [turnFile(DEMO_FILE, WORKTREE, 'execute')]
+const persistentRunning = sessionWithFiles(persistentFiles, true)
+render(persistentRunning)
+await waitFor('写入拉起浮窗', () => q('.uvf_win') !== null)
+render({ ...persistentRunning, running: false }, false)
+await waitFor('Turn 间暂时隐藏浮窗', () => q('.uvf_win') === null)
+render({ ...persistentRunning, running: true }, false)
+await waitFor('下一 Turn 延续非终态浮窗', () => q('.uvf_win') !== null)
+
 // ---- scenario 0b: relative target resolves against the session cwd ----
 worktrees = [wt('ready')]
 render(sessionWithTargets([{ file: 'work_班级成绩表/班级管理.univer', worktreeId: WORKTREE }], false))
 await waitFor('相对路径解析后出现审阅面板', () => q('.uvf_panel') !== null)
 if (!reviewRootEl.contains(q('.uvf_panel'))) throw new Error('review panel must render at the Turn tail, not in the input dock')
-if (stateRequests.at(-1) !== REL_DEMO_FILE) throw new Error('relative target must be polled as absolute: ' + stateRequests.join(', '))
-if (q('.uvf_panelWorktree')?.textContent !== 'v3smoke') throw new Error('panel must place the worktree name beside the file name')
-if (q('.uvf_panelMeta')?.textContent !== REL_DEMO_FILE) throw new Error('panel metadata must show only the full file path')
+if (!stateRequests.includes(REL_DEMO_FILE)) throw new Error('relative target must be polled as absolute: ' + stateRequests.join(', '))
+await waitFor('相对路径卡片状态完成切换', () => q('.uvf_panelWorktree')?.textContent === 'v3smoke' && q('.uvf_panelMeta')?.textContent === REL_DEMO_FILE)
+
+// ---- scenario 0c: later reads cannot erase a ready transition in the same Turn ----
+worktrees = [wt('ready')]
+const readyThenReads = turnFile(DEMO_FILE, WORKTREE, 'worktree', 'ready')
+readyThenReads.operations.push(
+  { ...operation('inspect', WORKTREE, null, UNITS[0].unitId), file: DEMO_FILE },
+  { ...operation('status', null), file: DEMO_FILE },
+)
+render(sessionWithFiles([readyThenReads], false))
+await waitFor('ready 后读取仍展示合并预览', () => q('.uvf_panelFrame')?.getAttribute('src') === ZH_FULL_DEFAULT_MERGE_URL)
 
 // ---- scenario 1: draft → floating window with live iframe ----
 worktrees = [wt('merged', 'wt-other-000001'), wt('draft')]
@@ -378,7 +433,7 @@ render(liveDraftSession)
 await waitFor('draft 浮窗出现', () => q('.uvf_win') !== null)
 if (q('.uvf_frame')?.getAttribute('src') !== ZH_DEFAULT_UNIT_URL) throw new Error('window iframe must default to the changed unit in the DSH locale')
 {
-  const chips = qa('.uvf_unit')
+  const chips = Array.from(document.querySelectorAll('.uvf_win .uvf_unit'))
   if (chips.length !== 3) throw new Error('unit chips missing: ' + chips.length)
   if ((chips[2].textContent ?? '').includes('删') === false || (chips[2].textContent ?? '').includes('u-gone')) {
     throw new Error('nameless deleted chip must show the kind label, not the unitId: ' + chips[2].textContent)
@@ -391,7 +446,7 @@ if (q('.uvf_frame')?.getAttribute('src') !== ZH_DEFAULT_UNIT_URL) throw new Erro
 }
 if ((q('.uvf_windowTitle')?.textContent ?? '').includes('v3smoke') === false) throw new Error('title must name the draft worktree')
 if (qa('.uvf_win').length !== 1) throw new Error('worktrees the session never mentioned must stay hidden')
-if (q('.uvf_panel') !== null) throw new Error('no merge panel while the worktree is draft')
+if (q('.uvf_panel') === null) throw new Error('the unified Turn card must exist while the worktree is draft')
 
 // ---- scenario 1b: DSH locale switch updates shell copy and the live Viewer in place ----
 {
@@ -505,25 +560,19 @@ worktrees = [wt('ready')]
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], true))
 await waitFor('ready 且运行中浮窗保留', () => q('.uvf_win') !== null)
 if ((q('.uvf_chip')?.textContent ?? '') !== '待确认') throw new Error('ready chip must say 待确认 while running')
-if (q('.uvf_panel') !== null) throw new Error('no merge panel while the session is running')
+if (q('.uvf_panel') === null) throw new Error('the unified Turn card must exist while the session is running')
 
 // ---- scenario 3b: draft + session end → review dock with mark-ready ----
 worktrees = [wt('draft')]
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('draft 审阅面板出现（会话结束后）', () => q('.uvf_panel') !== null)
-if (q('.uvf_win') !== null) throw new Error('no floating window for a draft worktree after session end')
+await waitFor('draft 会话结束后浮窗关闭', () => q('.uvf_win') === null)
 if (q('.uvf_panelFrame')?.getAttribute('src') !== ZH_FULL_DEFAULT_UNIT_URL) throw new Error('draft card must embed the full localized worktree page at the changed unit')
 if ((q('.uvf_panelChip')?.textContent ?? '') !== '修改中') throw new Error('draft panel chip must match the Viewer status wording')
 if (q('.uvf_panelPageKind') !== null) throw new Error('review header must not repeat the embedded page type')
 if (q('.uvf_panelWorktree')?.textContent !== 'v3smoke') throw new Error('draft panel must place the worktree name beside the file name')
 if (q('.uvf_panelMeta')?.textContent !== DEMO_FILE) throw new Error('review header metadata must contain only the full file path')
-if ((q('.uvf_hint')?.textContent ?? '').includes('提交确认') === false) throw new Error('draft panel must use the Viewer confirmation wording')
-{
-  const kinds = qa('.uvf_action').map((el) => el.getAttribute('data-kind'))
-  if (kinds.includes('ready') === false || kinds.includes('discard') === false || kinds.includes('merge') === true) {
-    throw new Error('draft panel actions wrong: ' + kinds.join(','))
-  }
-}
+if (q('.uvf_panelFoot') !== null || q('.uvf_action') !== null) throw new Error('card must defer lifecycle actions to the embedded Viewer')
 q('[data-panel-action=fullscreen]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
 await waitFor('审阅面板进入全屏', () => q('.uvf_panel')?.className.includes('uvf_panel_fullscreen') === true)
 if (q('[data-panel-action=fullscreen]')?.getAttribute('aria-label') !== '退出全屏') throw new Error('fullscreen control must expose its current action')
@@ -554,17 +603,12 @@ if (q('[data-panel-action=fold]') === null) throw new Error('fold control must r
   render(reviewSession, false)
   await waitFor('审阅卡片切回中文', () => q('.uvf_panelFrame')?.getAttribute('src') === ZH_FULL_DEFAULT_UNIT_URL)
 }
-q('.uvf_action[data-kind=ready]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
-await waitFor('标记 ready 后切到完整合并页', () => q('.uvf_panelFrame')?.getAttribute('src') === ZH_FULL_DEFAULT_MERGE_URL)
-if ((q('.uvf_panelChip')?.textContent ?? '') !== '待确认') throw new Error('panel chip must switch to 待确认')
-if (q('.uvf_panelMeta')?.textContent !== DEMO_FILE) throw new Error('ready panel header metadata must remain the full file path')
-if (q('.uvf_action') !== null) throw new Error('ready card must defer merge and discard to the full Univer page')
-
 // ---- scenario 4: ready + session end → window closes, merge panel embeds ----
+worktrees = [wt('ready')]
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], false))
 await waitFor('会话结束后浮窗关闭', () => q('.uvf_win') === null)
 await waitFor('合并预览面板出现', () => q('.uvf_panel') !== null)
-if (q('.uvf_panelFrame')?.getAttribute('src') !== ZH_FULL_DEFAULT_MERGE_URL) throw new Error('card iframe must embed the full localized mergePreview page at the changed unit')
+await waitFor('卡片嵌入完整合并页', () => q('.uvf_panelFrame')?.getAttribute('src') === ZH_FULL_DEFAULT_MERGE_URL)
 if (q('.uvf_panelWorktree')?.textContent !== 'v3smoke') throw new Error('card must place the ready worktree beside the file name')
 if ((q('.uvf_panelChip')?.textContent ?? '') !== '待确认') throw new Error('panel chip must say 待确认')
 if (q('.uvf_action') !== null) throw new Error('ready card must not duplicate the mergePreview page actions')

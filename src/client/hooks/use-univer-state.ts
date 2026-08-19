@@ -1,20 +1,25 @@
 import * as React from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { FileState } from '../../shared/wire/state.ts'
-import { getFileState, getUniverStatus, startGateway } from '../api/univer-api.ts'
+import { getFileState, getUniverStatus, isMissingUniverFile, startGateway } from '../api/univer-api.ts'
 
 /** Poll collaboration state for a stable list of files. */
 export function useUniverStates(files: readonly string[], sessionId: SessionId, intervalMs = 900): {
   readonly states: Readonly<Record<string, FileState>>
+  readonly missingFiles: ReadonlySet<string>
   readonly applyState: (state: FileState) => void
 } {
   const [states, setStates] = React.useState<Record<string, FileState>>({})
+  const [missing, setMissing] = React.useState<Record<string, true>>({})
   const key = files.join('\u0000')
   React.useEffect(() => {
     if (files.length === 0) {
       setStates({})
+      setMissing({})
       return
     }
+    setStates({})
+    setMissing({})
     let active = true
     const poll = async (): Promise<void> => {
       for (const file of files) {
@@ -22,8 +27,23 @@ export function useUniverStates(files: readonly string[], sessionId: SessionId, 
           const state = await getFileState(file, sessionId)
           if (!active) return
           setStates((previous) => ({ ...previous, [file]: state }))
+          setMissing((previous) => {
+            if (previous[file] === undefined) return previous
+            const next = { ...previous }
+            delete next[file]
+            return next
+          })
         } catch (error) {
           if (!active) return
+          if (isMissingUniverFile(error)) {
+            setStates((previous) => {
+              if (previous[file] === undefined) return previous
+              const next = { ...previous }
+              delete next[file]
+              return next
+            })
+            setMissing((previous) => previous[file] === true ? previous : { ...previous, [file]: true })
+          }
         }
       }
     }
@@ -41,7 +61,16 @@ export function useUniverStates(files: readonly string[], sessionId: SessionId, 
   }, [key, sessionId, intervalMs])
   return {
     states,
-    applyState: React.useCallback((state: FileState) => setStates((previous) => ({ ...previous, [state.file]: state })), []),
+    missingFiles: React.useMemo(() => new Set(Object.keys(missing)), [missing]),
+    applyState: React.useCallback((state: FileState) => {
+      setStates((previous) => ({ ...previous, [state.file]: state }))
+      setMissing((previous) => {
+        if (previous[state.file] === undefined) return previous
+        const next = { ...previous }
+        delete next[state.file]
+        return next
+      })
+    }, []),
   }
 }
 

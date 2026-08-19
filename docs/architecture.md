@@ -25,14 +25,14 @@
 
 ## 2. 必须保留的产品功能
 
-- 在 DSH 会话中发现 `.univer` 文件，并为每个文件显示独立的回合尾部预览卡片；
+- 在 DSH 会话中发现 `.univer` 文件，并为每个文件显示采用统一审阅布局的回合尾部卡片；
 - 在 DSH 内以 Viewer 全屏预览文件；
 - worktree 创建或更新后显示实时浮动窗口；
 - 一个 worktree 改动多个 unit 时，只列出有改动的 unit 并允许切换；
 - 会话结束后在最近一次操作各 worktree 的回合末尾为 `draft` 或 `ready` worktree 显示嵌入式审阅面板；
-- 后续回合再次操作同一 worktree 时，旧回合保留同款审阅 header 作为历史标记，不回退到文件预览卡片；
+- 后续回合再次操作同一 worktree 时，旧回合保留同一张完整卡片并默认折叠，不回退到旧文件预览卡片或单独历史 header；
 - 审阅卡片使用紧凑 header：首行显示 Univer 文件名和右侧的 worktree 名称，次行只显示完整文件路径，状态、折叠和全屏控制位于右侧；桌面端不同生命周期的展开卡片默认总高度约 650px，内嵌完整页面默认折叠左侧边栏，卡片折叠保留已加载页面；全屏时隐藏折叠按钮，Esc 退出全屏；
-- draft 审阅卡片可执行提交确认和丢弃；ready 状态的丢弃与合入当前版本只使用完整 Univer 页面内置操作；
+- draft、ready 状态的提交确认、丢弃与合入当前版本只使用完整 Univer 页面内置操作，卡片外壳不重复提供 action footer；
 - worktree 进入 `merged` 或 `discarded` 终态后不再显示浮窗或修改操作，但保留审阅卡片并在完整页面中显示主线；
 - 插件按需启动并管理内置 Gateway 和 Viewer；
 - 多个 DSH 会话的预览目标与审阅状态相互隔离；
@@ -158,13 +158,11 @@ src/
     api/
       univer-api.ts                  # 唯一 HTTP 访问层
     conversation/
-      univer-target-definition.ts    # 从会话事件恢复预览目标
+      univer-turn-definition.ts      # 归约可回放的 Turn 操作与生命周期结果
     hooks/
       use-univer-state.ts
-      use-worktree-action.ts
     components/
       preview-card.tsx
-      preview-dialog.tsx
       worktree-window.tsx
       review-panel.tsx
       unit-chips.tsx
@@ -173,7 +171,6 @@ src/
       en.ts
       zh.ts
     styles/
-      preview.ts
       worktree.ts
   shared/
     wire/
@@ -307,7 +304,9 @@ Client 只解析结构化 `univer_*` 工具事件，不从 bash 命令或自由�
 
 Client 是状态投影，不拥有 worktree 真相。预览目标来自可回放的会话事件；实时状态来自 Host API；Viewer iframe 负责文档内容的实时展示。
 
-回合尾部 PreviewCard 打开完整的 standalone Viewer 页面，与 `univer-cli open` 的页面模式一致；实时 worktree 浮窗和会话结束审阅面板继续使用 `mode=embedded`，分别绑定 `worktree` 与 `mergePreview` scope。
+Client 通过 `univerTurnDefinition` 按 `callId` 配对结构化工具调用与结果，并分别归约生命周期、内容写入和读取操作；读取操作不能覆盖同一 Turn 已完成的 ready、reopen、merge 或 discard 转换。统一回合卡片把该投影与 Host `FileState` 组合，按权威状态打开 trunk、worktree 或 merge preview 完整页面；若 Host 明确确认投影中的文件已不存在，则不渲染该卡片，以覆盖 Agent 在同一 Turn 中创建并通过其他工具删除临时文件的场景。
+
+实时浮窗只由 `univer_new`、worktree create/reopen/ready 和内容写入主动拉起，纯 status、inspect、lint 与 export 不主动打开窗口。用户保持打开的文件或非终态 worktree 会在下一 Turn 继续显示；用户关闭优先，merged 与 discarded 清除打开意图。
 
 Client 必须满足：
 
@@ -317,6 +316,8 @@ Client 必须满足：
 - mutation 期间禁用重复操作，完成后重新获取 Host 状态；
 - Viewer URL 的文件、worktree、unit、mode 与 scope 参数视为不透明值；Client 只能设置不改变资源身份和授权范围的展示参数；
 - 终态 worktree 在原回合末尾保留审阅卡片，移除修改操作并显示主线完整页面；
+- 所有 Turn 使用同一种卡片布局；状态加载失败只显示该布局的不可用状态，不回退旧卡片；
+- 卡片不复制 Viewer 已提供的 ready、merge 或 discard 操作；
 - UI 文案来自 locale 模块。
 
 ## 11. CLI 移除决策

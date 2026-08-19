@@ -123,9 +123,9 @@ The agent automatically loads the relevant skills and selects the `univer_*` too
 
 ### 3. Review it in the conversation
 
-- While the agent works, a floating window in the top-right shows the worktree updating live.
-- At the end of a turn, every touched `.univer` file gets a preview card that opens fullscreen inside DSH.
-- When the agent submits its work, a full review card appears in the conversation. Merge after you approve the result, ask for another revision, or discard it.
+- Creating a `.univer` file, creating or reopening a worktree, writing content, and submitting for review opens a live window in the top-right. A non-terminal worktree left open in one turn stays open in the next.
+- Every touched `.univer` file that still exists at the end of the Turn uses the same foldable, fullscreen-capable Turn card; historical Turns keep the same card collapsed by default. Temporary files created and then removed during the Turn do not leave cards behind.
+- Submit, merge, and discard through the full Univer page embedded in the card instead of duplicate controls outside the Viewer.
 
 ## How it works
 
@@ -169,9 +169,9 @@ The plugin also ships eight version-matched, lazily loaded skills: core orchestr
 
 ## Preview and review experience
 
-- **Live worktree window** — drag, resize, fold, or maximize it. If a worktree changes several Units, it lists only those that changed.
-- **Per-turn preview cards** — every touched `.univer` file has its own card, so artifacts stay next to the work that produced them.
-- **End-of-session review** — both `draft` and `ready` worktrees remain inspectable in the conversation. Cards stay as history after merge or discard.
+- **Live Univer window** — file creation plus worktree creation, reopening, writing, and submission open it automatically. Drag, resize, fold, or maximize it; non-terminal windows left open carry into the next Turn.
+- **Unified Turn cards** — every touched `.univer` file that still exists has its own full Univer card, later reads do not erase a lifecycle result already produced in that Turn, and deleted temporary files do not leave loading cards behind.
+- **Historical review** — draft, ready, merged, and discarded results all remain in the same card layout at their original Turn, with historical cards collapsed by default.
 - **Session isolation** — each DSH session shows only its own windows, cards, and review state.
 - **English and Chinese UI** — the plugin shell and every open Viewer follow the DSH locale.
 

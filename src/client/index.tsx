@@ -3,9 +3,8 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { PreviewCard } from './components/preview-card.tsx'
 import { UniverDock } from './components/univer-dock.tsx'
-import { selectUniverPreview, univerTargetDefinition } from './conversation/univer-target-definition.ts'
+import { selectUniverTurn, univerTurnDefinition } from './conversation/univer-turn-definition.ts'
 import { en, UNIVER_LOCALE_NAMESPACE, zh } from './locales/index.ts'
-import { previewStyles } from './styles/preview.ts'
 import { worktreeStyles } from './styles/worktree.ts'
 import { viewerLocaleOf, type ViewerLocale } from './viewer-locale.ts'
 
@@ -14,9 +13,9 @@ export const inject = ['slots', 'locale', 'conversationEvents']
 /** Register the DSH browser projections for Univer files and worktrees. */
 export function apply(ctx: ClientContext): void {
   const getViewerLocale = (): ViewerLocale => viewerLocaleOf(ctx.locale.getSnapshot().active)
-  injectStyles('dsh-univer-office/styles', `${previewStyles}\n${worktreeStyles}`)
+  injectStyles('dsh-univer-office/styles', worktreeStyles)
   try {
-    ctx.conversationEvents.register(univerTargetDefinition)
+    ctx.conversationEvents.register(univerTurnDefinition)
   } catch (error) {
     if (!(error instanceof Error) || !error.message.includes('already registered')) throw error
   }
@@ -25,7 +24,7 @@ export function apply(ctx: ClientContext): void {
     name: 'conversation.chat.turnTail',
     priority: -10,
     locale: UNIVER_LOCALE_NAMESPACE,
-    select: selectUniverPreview,
+    select: selectUniverTurn,
     inject: () => ({ getViewerLocale }),
   }, PreviewCard)), 'univer: turn preview')
   ctx.effect(() => ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({

@@ -12,5 +12,6 @@ export const en = {
   'dock.mergeTitle': 'Merge preview', 'dock.reviewTitle': 'Modification in progress', 'dock.markReady': 'Submit for confirmation',
   'dock.merged': 'Merged', 'dock.discarded': 'Discarded', 'dock.mergedTitle': 'Changes merged', 'dock.discardedTitle': 'Changes discarded',
   'dock.fullscreen': 'Review fullscreen', 'dock.exitFullscreen': 'Exit fullscreen',
+  'dock.currentVersion': 'Current version', 'dock.loading': 'Loading', 'dock.unavailable': 'Unavailable',
   'dock.notReady': 'Submit this modification for confirmation before merging or discarding it', 'dock.merge': 'Merge into current version', 'dock.discard': 'Discard',
 } satisfies Record<UniverLocaleKey, string>

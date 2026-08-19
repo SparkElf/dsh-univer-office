@@ -1,8 +1,8 @@
 import * as React from 'react'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ActiveWorktreeState } from '../../shared/wire/state.ts'
+import type { FileState, WorktreeStatus } from '../../shared/wire/state.ts'
 import { startGateway } from '../api/univer-api.ts'
-import { basename } from '../conversation/univer-target-definition.ts'
+import { basename } from '../conversation/univer-turn-definition.ts'
 import { localizeViewerUrl } from '../viewer-locale.ts'
 import type { ViewerLocale } from '../viewer-locale.ts'
 import { UnitChips, unitViewerUrl } from './unit-chips.tsx'
@@ -22,7 +22,9 @@ const CASCADE_OFFSET = 24
 
 interface WorktreeWindowProps {
   readonly file: string
-  readonly worktree: ActiveWorktreeState
+  readonly state: FileState | undefined
+  readonly worktreeId: string | null
+  readonly preferredUnitId: string | null
   readonly stackIndex: number
   readonly t: TranslateNS<'univer'>
   readonly viewerLocale: ViewerLocale
@@ -35,10 +37,14 @@ export function WorktreeWindow(props: WorktreeWindowProps): React.ReactElement {
   const [maximized, setMaximized] = React.useState(false)
   const [interaction, setInteraction] = React.useState<Interaction | null>(null)
   const [rect, setRect] = React.useState<WindowRect>(() => initialRect(props.stackIndex, viewportSize()))
-  const [selected, setSelected] = React.useState<string | undefined>()
+  const [selected, setSelected] = React.useState<string | undefined>(props.preferredUnitId ?? undefined)
   const rectRef = React.useRef(rect)
   const cancelPointerSessionRef = React.useRef<() => void>(() => undefined)
   rectRef.current = rect
+
+  React.useEffect(() => {
+    if (props.preferredUnitId !== null) setSelected(props.preferredUnitId)
+  }, [props.preferredUnitId])
 
   React.useEffect(() => {
     const onViewportResize = (): void => setRect((current) => fitRect(current, viewportSize()))
@@ -48,11 +54,21 @@ export function WorktreeWindow(props: WorktreeWindowProps): React.ReactElement {
 
   React.useEffect(() => () => cancelPointerSessionRef.current(), [])
 
-  const units = props.worktree.units
+  const worktree = props.worktreeId === null ? undefined : props.state?.worktrees.find((entry) => entry.worktreeId === props.worktreeId)
+  const units = worktree?.units ?? []
   const selectedUnit = selected !== undefined && units.some((unit) => unit.unitId === selected) ? selected : units[0]?.unitId
-  const target = unitViewerUrl(props.worktree.worktreeUrl, units, selectedUnit, 'worktree')
+  const target = props.worktreeId === null
+    ? props.state?.viewerUrl ?? undefined
+    : worktree === undefined
+      ? undefined
+      : unitViewerUrl(worktree.status === 'ready' ? worktree.mergeUrl : worktree.worktreeUrl, units, selectedUnit, worktree.status === 'ready' ? 'merge' : 'worktree')
   const url = target === undefined ? undefined : localizeViewerUrl(target, props.viewerLocale)
-  const title = props.worktree.name || props.worktree.worktreeId
+  const title = worktree?.name || worktree?.worktreeId || props.worktreeId || props.t('dock.currentVersion')
+  const status: WorktreeStatus | 'trunk' | 'loading' | 'unavailable' = props.state === undefined
+    ? 'loading'
+    : props.worktreeId === null
+      ? 'trunk'
+      : worktree?.status ?? 'unavailable'
 
   const beginPointerSession = (event: React.PointerEvent<HTMLElement>, kind: Interaction): void => {
     if (event.button !== 0 || maximized) return
@@ -129,9 +145,9 @@ export function WorktreeWindow(props: WorktreeWindowProps): React.ReactElement {
         <span className="uvf_windowTitle">{title}</span>
         <span className="uvf_windowFile">{basename(props.file)}</span>
       </span>
-      <span className="uvf_chip" data-status={props.worktree.status}>
+      <span className="uvf_chip" data-status={status}>
         <span className="uvf_pulse" aria-hidden="true" />
-        {props.t(`dock.${props.worktree.status}`)}
+        {status === 'trunk' ? props.t('dock.currentVersion') : status === 'loading' ? props.t('dock.loading') : status === 'unavailable' ? props.t('dock.unavailable') : props.t(`dock.${status}`)}
       </span>
       <span className="uvf_windowControls">
         <WindowControl action="fold" label={props.t(folded ? 'dock.expand' : 'dock.fold')} onClick={toggleFolded}>

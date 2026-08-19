@@ -1,30 +1,53 @@
 import * as React from 'react'
-import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import type { FileState, WorktreeState } from '../../shared/wire/state.ts'
-import { basename } from '../conversation/univer-target-definition.ts'
-import { useWorktreeAction } from '../hooks/use-worktree-action.ts'
+import type { FileState, WorktreeState, WorktreeStatus } from '../../shared/wire/state.ts'
+import { basename } from '../conversation/univer-turn-definition.ts'
 import { localizeViewerUrl } from '../viewer-locale.ts'
 import type { ViewerLocale } from '../viewer-locale.ts'
 import { UnitChips, unitViewerUrl } from './unit-chips.tsx'
 
-/** Persistent Turn-tail card with a full Univer page below its review header. */
-export function ReviewPanel(props: { readonly sessionId: SessionId; readonly file: string; readonly trunkUrl: string | null; readonly worktree: WorktreeState; readonly t: TranslateNS<'univer'>; readonly viewerLocale: ViewerLocale; readonly applyState: (state: FileState) => void }): React.ReactElement {
-  const [open, setOpen] = React.useState(true)
+type CardStatus = WorktreeStatus | 'trunk' | 'loading' | 'unavailable'
+
+/** Unified Turn-tail card for trunk, worktree, loading, terminal, and historical views. */
+export function ReviewPanel(props: {
+  readonly file: string
+  readonly state: FileState | undefined
+  readonly worktreeId: string | null
+  readonly preferredUnitId: string | null
+  readonly historical: boolean
+  readonly t: TranslateNS<'univer'>
+  readonly viewerLocale: ViewerLocale
+}): React.ReactElement {
+  const [open, setOpen] = React.useState(!props.historical)
   const [fullscreen, setFullscreen] = React.useState(false)
-  const [selected, setSelected] = React.useState<string | undefined>()
-  const action = useWorktreeAction(props.file, props.worktree.worktreeId, props.sessionId)
-  const ready = props.worktree.status === 'ready'
-  const merged = props.worktree.status === 'merged'
-  const discarded = props.worktree.status === 'discarded'
-  const terminal = merged || discarded
-  const statusKey = merged ? 'dock.merged' : discarded ? 'dock.discarded' : ready ? 'dock.mergeReady' : 'dock.draft'
-  const selectedUnit = selected !== undefined && props.worktree.units.some((unit) => unit.unitId === selected) ? selected : props.worktree.units[0]?.unitId
-  const scopedTarget = terminal
-    ? withUnit(props.trunkUrl ?? undefined, selectedUnit)
-    : unitViewerUrl(ready ? props.worktree.mergeUrl : props.worktree.worktreeUrl, props.worktree.units, selectedUnit, ready ? 'merge' : 'worktree')
-  const target = reviewPageUrl(scopedTarget ?? (!ready && !terminal ? props.worktree.openUrl : undefined))
-  const url = target === undefined ? undefined : localizeViewerUrl(target, props.viewerLocale)
+  const [selected, setSelected] = React.useState<string | undefined>(props.preferredUnitId ?? undefined)
+  const wasHistorical = React.useRef(props.historical)
+  const worktree = props.worktreeId === null ? undefined : props.state?.worktrees.find((entry) => entry.worktreeId === props.worktreeId)
+  const status: CardStatus = props.state === undefined
+    ? 'loading'
+    : props.worktreeId === null
+      ? 'trunk'
+      : worktree?.status ?? 'unavailable'
+  const units = worktree?.units ?? []
+  const selectedUnit = selected !== undefined && units.some((unit) => unit.unitId === selected)
+    ? selected
+    : props.preferredUnitId !== null && units.some((unit) => unit.unitId === props.preferredUnitId)
+      ? props.preferredUnitId
+      : units[0]?.unitId
+  const target = cardTarget(props.state, props.worktreeId, worktree, selectedUnit)
+  const url = target === undefined ? undefined : localizeViewerUrl(reviewPageUrl(target), props.viewerLocale)
+  const title = worktree?.name || worktree?.worktreeId || props.t('dock.currentVersion')
+  const merged = status === 'merged'
+  const discarded = status === 'discarded'
+
+  React.useEffect(() => {
+    if (!wasHistorical.current && props.historical) setOpen(false)
+    wasHistorical.current = props.historical
+  }, [props.historical])
+
+  React.useEffect(() => {
+    if (props.preferredUnitId !== null) setSelected(props.preferredUnitId)
+  }, [props.preferredUnitId])
 
   React.useEffect(() => {
     if (!fullscreen) return
@@ -35,18 +58,18 @@ export function ReviewPanel(props: { readonly sessionId: SessionId; readonly fil
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [fullscreen])
 
-  const run = async (name: 'ready' | 'discard'): Promise<void> => {
-    const result = await action.perform(name)
-    if (result?.ok) props.applyState(result.state)
-  }
-  return <section className={`uvf_panel${fullscreen ? ' uvf_panel_fullscreen' : ''}`} data-status={props.worktree.status} aria-label={basename(props.file)}>
+  return <section
+    className={`uvf_panel${fullscreen ? ' uvf_panel_fullscreen' : ''}${props.historical ? ' uvf_panel_history' : ''}`}
+    data-status={status}
+    aria-label={basename(props.file)}
+  >
     <header className="uvf_panelHead">
       <span className="uvf_panelGlyph" aria-hidden="true"><UniverMark merged={merged} discarded={discarded} /></span>
       <span className="uvf_panelIdentity">
-        <span className="uvf_panelTitleRow"><span className="uvf_panelTitle">{basename(props.file)}</span><span className="uvf_panelWorktree">{props.worktree.name || props.worktree.worktreeId}</span></span>
+        <span className="uvf_panelTitleRow"><span className="uvf_panelTitle">{basename(props.file)}</span><span className="uvf_panelWorktree">{title}</span></span>
         <span className="uvf_panelMeta" title={props.file}>{props.file}</span>
       </span>
-      <span className="uvf_panelChip" data-status={props.worktree.status}><span className="uvf_panelStatusDot" aria-hidden="true" />{props.t(statusKey)}</span>
+      <span className="uvf_panelChip" data-status={status}><span className="uvf_panelStatusDot" aria-hidden="true" />{statusLabel(status, props.t)}</span>
       <PanelControl action="fullscreen" label={props.t(fullscreen ? 'dock.exitFullscreen' : 'dock.fullscreen')} onClick={() => {
         setOpen(true)
         setFullscreen((value) => !value)
@@ -59,16 +82,30 @@ export function ReviewPanel(props: { readonly sessionId: SessionId; readonly fil
     </header>
     <div className="uvf_panelContent" hidden={!open}>
       <div className="uvf_panelBody">
-        <UnitChips units={props.worktree.units} selected={selectedUnit} t={props.t} onSelect={setSelected} />
-        {url === undefined ? <div className="uvf_panelUnavailable">{props.t('dock.gatewayDown')}</div> : <iframe className="uvf_panelFrame" src={url} title={props.worktree.name || props.worktree.worktreeId} />}
+        <UnitChips units={units} selected={selectedUnit} t={props.t} onSelect={setSelected} />
+        {url === undefined ? <div className="uvf_panelUnavailable">{props.t(status === 'loading' ? 'dock.loading' : 'dock.unavailable')}</div> : <iframe className="uvf_panelFrame" src={url} title={title} />}
       </div>
-      {!terminal && !ready ? <footer className="uvf_panelFoot">
-        <span className={action.error === null ? 'uvf_hint' : 'uvf_error'}>{action.error ?? (ready ? '' : props.t('dock.notReady'))}</span>
-        <button type="button" className="uvf_action" data-kind="discard" disabled={action.busy !== null} onClick={() => void run('discard')}>{props.t('dock.discard')}</button>
-        <button type="button" className="uvf_action" data-kind="ready" disabled={action.busy !== null} onClick={() => void run('ready')}>{props.t('dock.markReady')}</button>
-      </footer> : null}
     </div>
   </section>
+}
+
+function cardTarget(state: FileState | undefined, worktreeId: string | null, worktree: WorktreeState | undefined, selectedUnit: string | undefined): string | undefined {
+  if (state === undefined) return undefined
+  if (worktreeId === null) return withUnit(state.viewerUrl ?? undefined, selectedUnit)
+  if (worktree === undefined) return undefined
+  if (worktree.status === 'merged' || worktree.status === 'discarded') return withUnit(state.viewerUrl ?? undefined, selectedUnit)
+  return unitViewerUrl(worktree.status === 'ready' ? worktree.mergeUrl : worktree.worktreeUrl, worktree.units, selectedUnit, worktree.status === 'ready' ? 'merge' : 'worktree')
+    ?? (worktree.status === 'draft' ? worktree.openUrl : undefined)
+}
+
+function statusLabel(status: CardStatus, t: TranslateNS<'univer'>): string {
+  if (status === 'draft') return t('dock.draft')
+  if (status === 'ready') return t('dock.mergeReady')
+  if (status === 'merged') return t('dock.merged')
+  if (status === 'discarded') return t('dock.discarded')
+  if (status === 'trunk') return t('dock.currentVersion')
+  if (status === 'loading') return t('dock.loading')
+  return t('dock.unavailable')
 }
 
 function withUnit(url: string | undefined, unitId: string | undefined): string | undefined {
@@ -78,8 +115,7 @@ function withUnit(url: string | undefined, unitId: string | undefined): string |
   return target.toString()
 }
 
-function reviewPageUrl(url: string | undefined): string | undefined {
-  if (url === undefined) return undefined
+function reviewPageUrl(url: string): string {
   const target = new URL(url)
   target.searchParams.delete('mode')
   target.searchParams.set('sidebar', 'collapsed')
