@@ -244,12 +244,23 @@ function parseRecord(text: string): Record<string, unknown> | null {
 }
 
 function resolveTargetFile(file: string, cwd?: string): string {
-  if (isAbsolute(file) || cwd === undefined || cwd === '') return file
-  return `${cwd.replace(/\/+$/, '')}/${file.replace(/^\.\//, '')}`
+  const windows = isWindowsPath(file) || (cwd !== undefined && isWindowsPath(cwd))
+  if (isAbsolute(file) || cwd === undefined || cwd === '') return normalizeSeparators(file, windows)
+  const separator = windows ? '\\' : '/'
+  const resolved = `${cwd.replace(/[\\/]+$/, '')}${separator}${file.replace(/^\.[\\/]/, '')}`
+  return normalizeSeparators(resolved, windows)
 }
 
 function isAbsolute(file: string): boolean {
-  return file.startsWith('/') || /^[A-Za-z]:[\\/]/.test(file)
+  return file.startsWith('/') || file.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(file)
+}
+
+function isWindowsPath(file: string): boolean {
+  return file.startsWith('\\\\') || /^[A-Za-z]:[\\/]/.test(file)
+}
+
+function normalizeSeparators(file: string, windows: boolean): string {
+  return windows ? file.replaceAll('/', '\\') : file
 }
 
 export function basename(file: string): string {

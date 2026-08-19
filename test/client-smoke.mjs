@@ -7,13 +7,15 @@
 //   node test/client-smoke.mjs
 import { createServer } from 'node:http'
 import { readFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const root = dirname(here)
+const packageRoot = process.env.UNIVER_PLUGIN_ROOT
+if (packageRoot !== undefined && !isAbsolute(packageRoot)) throw new Error('UNIVER_PLUGIN_ROOT must be absolute')
+const root = packageRoot ?? dirname(here)
 // jsdom/react/react-dom come from this repo's devDependencies.
 const repoRequire = createRequire(import.meta.url)
 const { JSDOM } = repoRequire('jsdom')
@@ -274,8 +276,10 @@ document.body.appendChild(reviewRootEl)
 const reviewRoot = createRoot(reviewRootEl)
 const SESSION_CWD = join(tmpdir(), 'dsh-univer-client-smoke', 'workdir')
 const REL_DEMO_FILE = SESSION_CWD + '/work_班级成绩表/班级管理.univer'
+const WINDOWS_CWD = 'C:\\Users\\17361\\Documents\\DSH'
+const WINDOWS_FILE = WINDOWS_CWD + '\\学生成绩表.univer'
 let scenario = 0
-function render(session, remount = true) {
+function render(session, remount = true, cwd = SESSION_CWD) {
   if (remount) scenario += 1
   reactRoot.render(React.createElement(dockEntry.Component, {
     key: 's' + scenario,
@@ -283,7 +287,7 @@ function render(session, remount = true) {
     t,
     getViewerLocale: dockInjected.getViewerLocale,
     sessionId: 'test-session-id',
-    useSessions: (selector) => selector({ byId: { 'test-session-id': { cwd: SESSION_CWD } } }),
+    useSessions: (selector) => selector({ byId: { 'test-session-id': { cwd } } }),
   }))
   reviewRoot.render(React.createElement(tailEntry.Component, {
     key: 's' + scenario,
@@ -292,7 +296,7 @@ function render(session, remount = true) {
     getViewerLocale: tailInjected.getViewerLocale,
     sessionId: 'test-session-id',
     useSession: (selector) => selector(session),
-    useSessions: (selector) => selector({ byId: { 'test-session-id': { cwd: SESSION_CWD } } }),
+    useSessions: (selector) => selector({ byId: { 'test-session-id': { cwd } } }),
   }))
 }
 async function waitFor(description, predicate, timeoutMs = 5000) {
@@ -343,6 +347,17 @@ tailRoot.render(React.createElement(tailEntry.Component, {
   ] },
 }))
 await waitFor('相对路径和绝对路径去重为一张卡片', () => tailRootEl.querySelectorAll('.uvf_panel').length === 1 && tailRootEl.querySelector('.uvf_panelMeta')?.textContent === REL_DEMO_FILE)
+
+// Win32 call/result paths may use opposite separators but still identify one file.
+tailRoot.render(React.createElement(tailEntry.Component, {
+  ...tailProps,
+  matched: { turn: 3, files: [
+    turnFile('学生成绩表.univer'),
+    turnFile(WINDOWS_FILE.replaceAll('\\', '/'), WORKTREE),
+  ] },
+  useSessions: (selector) => selector({ byId: { 'test-session-id': { cwd: WINDOWS_CWD } } }),
+}))
+await waitFor('Windows 分隔符去重为一张卡片', () => tailRootEl.querySelectorAll('.uvf_panel').length === 1 && tailRootEl.querySelector('.uvf_panelMeta')?.textContent === WINDOWS_FILE)
 
 // Distinct files touched in one turn each receive their own card.
 tailRoot.render(React.createElement(tailEntry.Component, {
@@ -416,7 +431,16 @@ if (!reviewRootEl.contains(q('.uvf_panel'))) throw new Error('review panel must 
 if (!stateRequests.includes(REL_DEMO_FILE)) throw new Error('relative target must be polled as absolute: ' + stateRequests.join(', '))
 await waitFor('相对路径卡片状态完成切换', () => q('.uvf_panelWorktree')?.textContent === 'v3smoke' && q('.uvf_panelMeta')?.textContent === REL_DEMO_FILE)
 
-// ---- scenario 0c: later reads cannot erase a ready transition in the same Turn ----
+// ---- scenario 0c: Win32 separator variants identify one floating window ----
+worktrees = [wt('ready')]
+render(sessionWithFiles([
+  turnFile('学生成绩表.univer', WORKTREE),
+  turnFile(WINDOWS_FILE.replaceAll('\\', '/'), WORKTREE),
+], true), true, WINDOWS_CWD)
+await waitFor('Windows 分隔符去重为一个浮窗', () => qa('.uvf_win').length === 1)
+if (!stateRequests.includes(WINDOWS_FILE)) throw new Error('Win32 target must be polled with native separators: ' + stateRequests.join(', '))
+
+// ---- scenario 0d: later reads cannot erase a ready transition in the same Turn ----
 worktrees = [wt('ready')]
 const readyThenReads = turnFile(DEMO_FILE, WORKTREE, 'worktree', 'ready')
 readyThenReads.operations.push(
