@@ -61,8 +61,16 @@ jobs:
       - name: Verify npm latest dist-tag
         shell: bash
         run: |
-          LATEST_VERSION="$(npm view dsh-univer-office dist-tags.latest --registry=https://registry.npmjs.org/)"
-          test "$LATEST_VERSION" = "$TARGET_VERSION"
+          for attempt in {1..10}; do
+            LATEST_VERSION="$(npm view dsh-univer-office dist-tags.latest --registry=https://registry.npmjs.org/)"
+            if [ "$LATEST_VERSION" = "$TARGET_VERSION" ]; then
+              exit 0
+            fi
+            echo "Waiting for npm dist-tag propagation ($attempt/10): latest is $LATEST_VERSION"
+            sleep 3
+          done
+          echo "npm latest did not converge to $TARGET_VERSION" >&2
+          exit 1
 
       - name: Summary
         run: |
