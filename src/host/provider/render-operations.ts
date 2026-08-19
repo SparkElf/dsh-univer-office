@@ -104,7 +104,7 @@ export class RenderOperations {
   private async openRuntime(signal?: AbortSignal): Promise<MachineRuntime> {
     try {
       return await createUniverRenderRuntime({
-        browserRuntimeRoot: RENDER_MACHINE_ROOT,
+        renderPageRoot: RENDER_MACHINE_ROOT,
         env: process.env,
         license: process.env.UNIVER_LICENSE?.trim() || UNIVER_LICENSE,
         ...(signal === undefined ? {} : { signal }),

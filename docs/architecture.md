@@ -142,7 +142,7 @@ src/
       entry.ts                       # 一次性无头 Univer 子进程入口
       license.ts                     # Worker 使用的 Univer license
       runtime/                       # 本地 snapshot/reference adapters
-  render-machine/                    # 布局检查与 SVG 文字测量使用的 machine-facing browser page
+  render-machine/                    # 组装 SDK Render Page 的 machine-facing browser entry
   gateway-app/
     gateway-entry.ts                 # Gateway 子进程入口
     transport/http.ts                # 文件、worktree 与 Unit HTTP 控制面
@@ -227,7 +227,7 @@ bundled skill provider -> DSH skill registry
 4. Client component 不直接 `fetch`；HTTP 访问集中在 `client/api`，轮询和 mutation 状态集中在 hooks。
 5. `shared/wire` 不依赖 Node.js、React、Cordis 或上游 Univer 包，且所有值必须可 JSON 序列化。
 6. Gateway 与 Worker 的应用源码分别属于 `src/gateway-app` 和 `src/workers/unit-content`。它们通过精确版本 SDK package 构建，不从外部 checkout 同步源码；生成 executable 不入库。
-7. Viewer 及其 render preset 和 IMPORTRANGE plugin 是本仓库的普通源码；可从 `univer-cli` 更新这些实现，但不提交上游源码快照目录或预构建 Viewer。
+7. Render Machine browser page 使用与 runtime 精确同版本的 `@univer-cli/univer-render-page` 提供页面协议与 render operations，并注入本仓库与 Viewer 共享的 Univer composition；Viewer、render preset 和 IMPORTRANGE plugin 是本仓库的普通源码。仓库不提交上游源码快照目录或预构建 Viewer。
 8. Skill Provider 只负责发现与加载包内 Markdown，不调用 Service，也不复制工具 schema。
 9. 所有 Cordis 注册通过 effect 生命周期撤销；插件卸载后不得遗留路由、工具、Skill provider、定时器或子进程。
 
