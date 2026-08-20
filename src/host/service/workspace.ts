@@ -51,14 +51,22 @@ async function resolveAuthorizedPath(cwd: string, value: string, mustExist: bool
   try {
     workspace = await realpath(cwd)
   } catch (error) {
-    throw new UniverError('session workspace does not exist', 'SESSION_SCOPE_UNAVAILABLE', { cause: error })
+    if (isPermissionError(error)) {
+      throw new UniverError('session workspace cannot be accessed because permission was denied', 'FILE_PERMISSION_DENIED', { cause: error })
+    }
+    const message = isMissingPathError(error) ? 'session workspace does not exist' : 'session workspace cannot be resolved'
+    throw new UniverError(message, 'SESSION_SCOPE_UNAVAILABLE', { cause: error })
   }
   const candidate = isAbsolute(value) ? resolve(value) : resolve(workspace, value)
   let canonical: string
   try {
     canonical = mustExist ? await realpath(candidate) : await canonicalizePotentialPath(candidate)
   } catch (error) {
-    throw new UniverError(mustExist ? 'path does not exist' : 'path cannot be resolved', 'INVALID_FILE_PATH', { cause: error })
+    if (isPermissionError(error)) {
+      throw new UniverError('path cannot be accessed because permission was denied', 'FILE_PERMISSION_DENIED', { cause: error })
+    }
+    const message = mustExist && isMissingPathError(error) ? 'path does not exist' : 'path cannot be resolved'
+    throw new UniverError(message, 'INVALID_FILE_PATH', { cause: error })
   }
   const fromWorkspace = relative(workspace, canonical)
   if (fromWorkspace === '..' || fromWorkspace.startsWith(`..${sep}`) || isAbsolute(fromWorkspace)) {
@@ -73,12 +81,28 @@ async function canonicalizePotentialPath(candidate: string): Promise<string> {
     try {
       const canonicalAncestor = await realpath(ancestor)
       return resolve(canonicalAncestor, relative(ancestor, candidate))
-    } catch {
+    } catch (error) {
+      if (!isMissingPathError(error)) throw error
       const parent = dirname(ancestor)
       if (parent === ancestor) throw new Error(`no existing ancestor for ${candidate}`)
       ancestor = parent
     }
   }
+}
+
+function isMissingPathError(error: unknown): boolean {
+  const code = nodeErrorCode(error)
+  return code === 'ENOENT' || code === 'ENOTDIR'
+}
+
+function isPermissionError(error: unknown): boolean {
+  const code = nodeErrorCode(error)
+  return code === 'EACCES' || code === 'EPERM'
+}
+
+function nodeErrorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined
+  return typeof error.code === 'string' ? error.code : undefined
 }
 
 function requireUniverExtension(value: string): void {

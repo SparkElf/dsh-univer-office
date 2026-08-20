@@ -39,9 +39,10 @@ if (
 	core === undefined ||
 	!core.content.includes("univer_status") ||
 	!core.content.includes("Do not wait for the user to name a tool") ||
+	!core.content.includes("Error [CODE]: message") ||
 	core.content.startsWith("---")
 ) {
-	throw new Error("bundled core skill did not load its frontmatter-free body");
+	throw new Error("bundled core skill did not load its frontmatter-free body and failure recovery guidance");
 }
 
 const slide = await ctx.skills.get("univer-slide");

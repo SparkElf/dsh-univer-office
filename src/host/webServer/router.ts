@@ -36,10 +36,15 @@ export function createUniverRouter(service: UniverService, sessions: SessionStor
       const rejected = error instanceof UniverError && (
         error.code === 'INVALID_REQUEST'
         || error.code === 'INVALID_FILE_PATH'
+        || error.code === 'FILE_PERMISSION_DENIED'
         || error.code === 'SESSION_SCOPE_UNAVAILABLE'
         || error.code === 'SESSION_SCOPE_DENIED'
       )
-      sendJson(response, rejected ? error.code === 'SESSION_SCOPE_DENIED' ? 403 : 400 : 500, {
+      const forbidden = error instanceof UniverError && (
+        error.code === 'FILE_PERMISSION_DENIED' || error.code === 'SESSION_SCOPE_DENIED'
+      )
+      const status = rejected ? (forbidden ? 403 : 400) : 500
+      sendJson(response, status, {
         ok: false,
         code: error instanceof UniverError ? error.code : 'INTERNAL_ERROR',
         message: error instanceof Error ? error.message : String(error),

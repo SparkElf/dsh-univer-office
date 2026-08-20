@@ -27,9 +27,12 @@ const service = new GatewayUniverService(new Context(), resolveConfig({ gatewayP
 const scoped = { workspace, file };
 
 try {
-	const started = await service.ensureGateway();
+	const [started, joinedStart] = await Promise.all([service.ensureGateway(), service.ensureGateway()]);
 	if (!started.ok || started.gateway !== origin || started.reused !== false) {
 		throw new Error(`plugin failed to start bundled Gateway: ${JSON.stringify(started)}`);
+	}
+	if (!joinedStart.ok || joinedStart.gateway !== origin || joinedStart.reused !== false) {
+		throw new Error(`concurrent callers did not join the same Gateway startup: ${JSON.stringify(joinedStart)}`);
 	}
 	const foreignResponse = await fetch(`http://127.0.0.1:${occupiedPort}`);
 	if (await foreignResponse.text() !== "not a Univer Gateway") {
@@ -168,6 +171,12 @@ try {
 	console.log("integration smoke OK (new/status/Unit/import/API/execute/inspect/export/lint/compile-svg/Worktree lifecycle, no global CLI)");
 } finally {
 	await service.dispose();
+	const releasedPort = createNetServer();
+	await new Promise((resolve, reject) => {
+		releasedPort.once("error", reject);
+		releasedPort.listen(availablePort, "127.0.0.1", resolve);
+	});
+	await closeServer(releasedPort);
 	await new Promise((resolve, reject) => foreign.close((error) => error === undefined ? resolve() : reject(error)));
 	await rm(scratch, { recursive: true, force: true });
 }

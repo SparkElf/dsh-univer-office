@@ -32,6 +32,7 @@ const external = [
   // DSH host peers (provided by the Harness runtime, not shipped in the tarball)
   '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-host-webserver',
+  '@deepseek-ai/dsh-llm',
   '@deepseek-ai/dsh-session',
   '@deepseek-ai/dsh-skill',
   '@deepseek-ai/dsh-tools',

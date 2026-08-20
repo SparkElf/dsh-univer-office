@@ -90,3 +90,11 @@ Do not redeclare injected variables. Execution is ESM and has no `require`. Reso
 ## Unsupported CLI-only capabilities
 
 Do not invent equivalents for CLI maintenance, daemon/configuration, resource registry search/export, `compile-typst`, screenshots, optimization, or shell command help. Use the bundled skills and tools available in DSH; if the task requires a missing capability, report that exact gap.
+
+## Failure recovery
+
+Tool failures use `Error [CODE]: message`. Route recovery by the code, not free text.
+
+- For `GATEWAY_UNAVAILABLE` or `GATEWAY_REQUEST_TIMEOUT`, retry one `univer_status` read. After a write timeout, inspect status and content before continuing.
+- For `FILE_PERMISSION_DENIED` or `SESSION_SCOPE_DENIED`, use an accessible in-workspace path or ask the user to correct access; do not retry the same path.
+- For worktree or Unit state errors, refresh with `univer_status`; reopen `ready` worktrees and replace terminal ones.

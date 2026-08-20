@@ -12,6 +12,7 @@ import { newTool } from './definitions/new.ts'
 import { statusTool } from './definitions/status.ts'
 import { unitTool } from './definitions/unit.ts'
 import { worktreeTool } from './definitions/worktree.ts'
+import { withUniverErrorContent } from './presentation.ts'
 
 export const inject = ['univer', 'tools']
 export const name = 'univer-tools'
@@ -21,17 +22,17 @@ export function apply(ctx: Context, config: ResolvedConfig): void {
   const gatewayReadTimeoutMs = config.gatewayStartupTimeoutMs + config.gatewayRequestTimeoutMs
   const gatewayWriteTimeoutMs = config.gatewayStartupTimeoutMs + config.gatewayMutationTimeoutMs
   const unitContentTimeoutMs = config.gatewayStartupTimeoutMs + config.unitContentOperationTimeoutMs
-  ctx.tools.register(newTool(ctx, gatewayWriteTimeoutMs))
-  ctx.tools.register(statusTool(ctx, gatewayReadTimeoutMs))
-  ctx.tools.register(worktreeTool(ctx, gatewayWriteTimeoutMs))
-  ctx.tools.register(unitTool(ctx, gatewayWriteTimeoutMs))
-  ctx.tools.register(importTool(ctx, unitContentTimeoutMs))
-  ctx.tools.register(inspectTool(ctx, unitContentTimeoutMs))
-  ctx.tools.register(executeTool(ctx, unitContentTimeoutMs))
-  ctx.tools.register(exportTool(ctx, unitContentTimeoutMs))
-  ctx.tools.register(lintTool(ctx, unitContentTimeoutMs))
-  ctx.tools.register(compileSvgTool(ctx, unitContentTimeoutMs))
-  ctx.tools.register(apiTool(ctx))
+  ctx.tools.register(withUniverErrorContent(newTool(ctx, gatewayWriteTimeoutMs)))
+  ctx.tools.register(withUniverErrorContent(statusTool(ctx, gatewayReadTimeoutMs)))
+  ctx.tools.register(withUniverErrorContent(worktreeTool(ctx, gatewayWriteTimeoutMs)))
+  ctx.tools.register(withUniverErrorContent(unitTool(ctx, gatewayWriteTimeoutMs)))
+  ctx.tools.register(withUniverErrorContent(importTool(ctx, unitContentTimeoutMs)))
+  ctx.tools.register(withUniverErrorContent(inspectTool(ctx, unitContentTimeoutMs)))
+  ctx.tools.register(withUniverErrorContent(executeTool(ctx, unitContentTimeoutMs)))
+  ctx.tools.register(withUniverErrorContent(exportTool(ctx, unitContentTimeoutMs)))
+  ctx.tools.register(withUniverErrorContent(lintTool(ctx, unitContentTimeoutMs)))
+  ctx.tools.register(withUniverErrorContent(compileSvgTool(ctx, unitContentTimeoutMs)))
+  ctx.tools.register(withUniverErrorContent(apiTool(ctx)))
   ctx.on('tools/pre-execute', (exec, next) => {
     if (exec.name !== 'univer_worktree' || !isRecord(exec.arguments)) return next()
     const action = exec.arguments.action
