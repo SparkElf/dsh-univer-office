@@ -90,8 +90,8 @@ Create a sales Sheet and a summary Slide in the same .univer file, with the Slid
 | Sheet | Cells, formulas, styles, tables, charts, pivots, filters, validation, images, and more | Structured range inspection, recalculation, live preview | `.xlsx` `.csv` `.tsv` | `.xlsx` `.csv` `.tsv` |
 | Doc | Paragraphs, rich text, lists, tasks, tables, images, charts, headers, footers, pagination | Document readback, live preview | `.docx` | `.docx` |
 | Slide | Pages, text, shapes, images, tables, charts, SVG layouts, transitions | Structure inspection, text bounds/overflow/overlap lint, live preview | `.pptx` | `.pptx` |
-| Base | Tables, fields, records, views, formulas, filters, sorting, grouping | Facade readback, live preview | — | `.xlsx` `.csv` `.tsv` |
-| Board | Shapes, text, connectors, images, native charts, routing | Element and connector analysis, live preview | — | — |
+| Base | Tables, fields, records, views, formulas, filters, sorting, grouping | Facade readback, live preview | `.xlsx` `.csv` `.tsv` | `.xlsx` `.csv` `.tsv` |
+| Board | Shapes, text, connectors, images, native charts, routing | Element and connector analysis, live preview | `mermaid` | `.png` `.jpeg` `.pptx` |
 
 Every content type supports isolated worktree editing, review submission, reopening, merging, and discarding. Base and Board currently use exact Facade readback for structural verification. Board file export is not yet supported.
 
