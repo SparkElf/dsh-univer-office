@@ -8,7 +8,7 @@
 //   pnpm run build:render  → artifacts/render-machine/
 //   pnpm run build:viewer  → artifacts/viewer/
 //   pnpm run build         → all five applications
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { builtinModules } from 'node:module'
 import { resolve } from 'node:path'
@@ -118,6 +118,7 @@ if (target === 'all' || target === 'gateway') {
     ...builtinModules.map((id) => `node:${id}`),
     ...builtinModules,
     'libsql',
+    '@univerjs-pro/exchange-node',
     '@univerjs-pro/exchange-node-binding',
     '@univerjs-pro/engine-formula-rust-binding',
     '@univerjs-pro/cli-assets',
@@ -195,7 +196,22 @@ if (target === 'all' || target === 'viewer') {
     },
     plugins: [react(), tailwindcss(), createPrismComponentEsmPlugin()],
   })
+  await assertViewerRibbonUtilityOrder(viewerOut)
   console.log('built', viewerOut)
+}
+
+async function assertViewerRibbonUtilityOrder(viewerOut) {
+  const html = await readFile(resolve(viewerOut, 'index.html'), 'utf8')
+  const cssPaths = [...html.matchAll(/href="([^"]+\.css)"/g)].map(match => match[1])
+  if (cssPaths.length === 0) throw new Error('viewer build produced no linked CSS')
+  const css = (await Promise.all(cssPaths.map(file =>
+    readFile(resolve(viewerOut, file.replace(/^\/+/, '')), 'utf8')
+  ))).join('\n')
+  const fixedHeight = css.lastIndexOf('.univer-h-6{height:1.5rem}')
+  const fullHeight = css.lastIndexOf('.univer-h-full{height:100%}')
+  if (fixedHeight < 0 || fullHeight < 0 || fullHeight < fixedHeight) {
+    throw new Error('viewer CSS utility order would collapse full-height grid ribbon buttons')
+  }
 }
 
 async function run(command, args) {
