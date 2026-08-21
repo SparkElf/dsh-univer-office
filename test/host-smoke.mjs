@@ -38,7 +38,9 @@ for (const invalid of [{ screenshotMaxPages: 0 }, { resourceCacheRoot: 'relative
 
 const WORKSPACE = await mkdtemp(join(tmpdir(), 'dsh-univer-host-smoke-'))
 const FILE = join(WORKSPACE, 'smoke.univer')
+const CODE_FILE = join(WORKSPACE, 'facade-program.js')
 await writeFile(FILE, '')
+await writeFile(CODE_FILE, 'return { ok: true }\n')
 const REAL_FILE = await realpath(FILE)
 const LOCKED_DIRECTORY = join(WORKSPACE, 'locked')
 const LOCKED_FILE = join(LOCKED_DIRECTORY, 'locked.univer')
@@ -200,6 +202,30 @@ try {
   if (resourcesResult.isError || !toolText(resourcesResult).includes('"operation":"resources"')) {
     throw new Error(`resource registries must be available without Gateway: ${JSON.stringify(resourcesResult)}`)
   }
+
+  const codeFileResult = await toolContext.tools.execute({
+    signal: new AbortController().signal,
+    callId: CallId('host-smoke-execute-code-file'),
+    name: 'univer_execute',
+    arguments: { file: FILE, codeFile: CODE_FILE, unitId: 'unit-1', worktreeId: WORKTREE },
+    agent: owner,
+  })
+  assertToolError(codeFileResult, 'GATEWAY_UNAVAILABLE')
+
+  const ambiguousCodeResult = await toolContext.tools.execute({
+    signal: new AbortController().signal,
+    callId: CallId('host-smoke-execute-ambiguous-code'),
+    name: 'univer_execute',
+    arguments: {
+      file: FILE,
+      code: 'return true',
+      codeFile: CODE_FILE,
+      unitId: 'unit-1',
+      worktreeId: WORKTREE,
+    },
+    agent: owner,
+  })
+  assertToolError(ambiguousCodeResult, 'INVALID_EXECUTION_SOURCE')
 
   const screenshotResult = await toolContext.tools.execute({
     signal: new AbortController().signal,

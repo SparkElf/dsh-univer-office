@@ -40,6 +40,8 @@ if (
 	!core.content.includes("univer_status") ||
 	!core.content.includes("univer_screenshot") ||
 	!core.content.includes("univer_resources") ||
+	!core.content.includes('await import("node:fs/promises")') ||
+	!core.content.includes("codeFile") ||
 	!core.content.includes("Do not wait for the user to name a tool") ||
 	!core.content.includes("Error [CODE]: message") ||
 	core.content.startsWith("---")

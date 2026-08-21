@@ -92,7 +92,17 @@ Never reopen or reuse a merged or discarded worktree; create a new worktree inst
 - Slide: `presentation`
 - Board: `board`
 
-Do not redeclare injected variables. Execution is ESM and has no `require`. Resolve exact methods with `univer_api`; use public Facade surfaces, check boolean/null returns, and retain generated stable IDs needed by later operations.
+Do not redeclare injected variables. Use `code` only for a small snippet. For multi-line or reusable Facade logic, write a workspace JavaScript body file and pass it as `codeFile`; provide exactly one of `code` or `codeFile`.
+
+Execution is Node ESM: `require` is unavailable, while dynamic `import()` and `Buffer` are available. For an explicit local workspace image, generate its data URI inside the execution instead of putting Base64 in the conversation:
+
+```js
+const { readFile } = await import("node:fs/promises");
+const bytes = await readFile("/absolute/session/workspace/image.png");
+const imageDataUri = `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`;
+```
+
+Read only task assets inside the session workspace. Do not print or return the data URI. Resolve exact Facade methods with `univer_api`, check boolean/null returns, and retain stable IDs needed by later operations.
 
 ## Import and export
 
