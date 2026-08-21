@@ -15,7 +15,7 @@ Facade page indexes are zero-based (`getSlideByIndex`, `getSlides()[i]`). Tool p
 - Edit existing content: use `univer_execute` with live Facade handles.
 - Insert or update native charts: reserve the rectangle in the page SVG, then use the direct
   `FSlide` chart methods through `univer_execute`.
-- Verify every changed page: `univer_inspect`, then `univer_lint`, then review the live DSH preview.
+- Verify every changed page: `univer_inspect`, then `univer_lint`, then `univer_screenshot` and inspect the returned PNG.
 - Export only after verification: `univer_export` to `.pptx`.
 
 ## Presentation structure
@@ -34,7 +34,7 @@ For every page specify:
 2. Structure type such as process, hub-spoke, layers, circular stages, timeline, comparison, card grid, or hero.
 3. One core message.
 4. Verbatim final copy for every title, label, card, and annotation.
-5. Required workspace image or SVG assets.
+5. Required workspace image or SVG assets. Describe asset meaning here; select concrete resource handles while building the page.
 
 Adjacent pages should not repeat the same structure. For reconstruction, transcribe reference text exactly.
 
@@ -42,7 +42,7 @@ Adjacent pages should not repeat the same structure. For reconstruction, transcr
 
 Finish page N before authoring page N+1.
 
-1. Prepare this page's local assets and record paths in the spec. Reuse prior assets deliberately; do not substitute Unicode glyphs or empty placeholders for required visuals.
+1. Prepare this page's local assets and record paths in the spec. For bundled icons, logos, emoji, or illustrations, use `univer_resources` `find` followed by `export` into a workspace resource directory. Copy returned handles exactly, keep a consistent registry/style baseline, and reuse prior exports deliberately. Do not substitute Unicode glyphs or empty placeholders for required visuals.
 2. Hand-author the complete `page-NN.svg` with inline styles and workspace-relative assets. Keep every page SVG through delivery.
 3. Call `univer_compile_svg` with explicit `source`, target `file`, draft `worktreeId`, Slide `unitId`, one-based `page`, and default `mode: "replace"`.
 4. Clear every compiler warning. Review every returned lint; retain one only when intentional and justified by evidence.
@@ -53,7 +53,7 @@ Never use `mode: "add"` to fix a page. Add overlays the corrected content while 
 
 ### 3. Review the deck
 
-After every page passes its own loop, inspect the complete deck and review the DSH client preview in batches of at most five pages. Check:
+After every page passes its own loop, call `univer_screenshot` for every page and review the returned PNGs in batches of at most five pages. Pass the explicit Slide `pages` and a workspace `output` directory; use `contactSheet: true` only as an additional deck overview, never as the only per-page evidence. Check:
 
 1. Elements clipped by or beyond the page.
 2. Text overflowing cards or colored regions.
@@ -64,7 +64,7 @@ After every page passes its own loop, inspect the complete deck and review the D
 7. Arrowheads disconnected, misdirected, or mismatched in color.
 8. Cross-page consistency in palette, fonts, icon style, margins, and structure diversity.
 
-Treat each defect as a pattern: search all page SVGs for the same mistake, fix sources, replace affected pages, and rerun their inspect/lint loop. Screenshot evidence is unavailable, so state that pixel-level review remains limited to the live preview.
+Treat each defect as a pattern: search all page SVGs for the same mistake, fix sources, replace affected pages, rerun their inspect/lint loop, and re-screenshot the affected pages. Record an explicit PASS or FAIL with observed evidence for every checklist item; report anything that genuinely requires human redesign.
 
 ### 4. Deliver
 
@@ -109,7 +109,7 @@ Treat every finding as real until its evidence proves the overlap intentional.
 - For text overlap, inspect both elements, colors, opacity, and intended stacking before deciding.
 - Every finding must end as fixed or explicitly justified in the final report.
 
-Structured inspection proves stored IDs, types, transforms, text, fill, stroke, and order. Lint proves only the three text-layout rules. The live preview remains necessary for wrapping, centering, alignment, contrast, imagery, and overall composition.
+Structured inspection proves stored IDs, types, transforms, text, fill, stroke, and order. Lint proves only the three text-layout rules. Screenshot review proves the rendered frame actually inspected and is necessary for wrapping, centering, alignment, contrast, imagery, and overall composition. It does not prove transition playback or uninspected pages.
 
 ## Deck and pages through Facade
 
@@ -257,6 +257,5 @@ Table style requires both a valid style ID and matching role options such as `{ 
 - Element animation, speaker notes, and master/layout-page editing are unsupported.
 - Non-image elements do not support arbitrary clipping, masks, blur, or glow.
 - Letter spacing is stored but not rendered.
-- Screenshot generation and pixel comparison are unavailable in this plugin version.
 
-Always finish with complete structural readback, `univer_lint` for every changed page, live preview review, and the `univer` ready/status workflow.
+Always finish with complete structural readback, `univer_lint` for every changed page, rendered screenshots of every page, and the `univer` ready/status workflow.

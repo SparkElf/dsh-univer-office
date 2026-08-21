@@ -69,7 +69,7 @@ Specify connector intent, marker type/size/offset, and routing. Imported/manual 
 
 ## Images
 
-Use user-provided or workspace image assets. Pass local SVG or bitmap data as a Base64 data URI to `board.insertImage()` with `ImageSourceType.BASE64`. Record the returned element ID and verify source type, bounds, and stacking order through a fresh read.
+Use user-provided workspace assets or the bundled SVG resource library. For bundled icons, logos, emoji, or illustrations, call `univer_resources` with `action: "find"`, then `action: "export"` into a workspace directory. Pass local SVG or bitmap data as a Base64 data URI to `board.insertImage()` with `ImageSourceType.BASE64`. Preserve intrinsic colors unless the resource reports `colorEditable: true`. Record the returned element ID and verify source type, bounds, and stacking order through a fresh read.
 
 Do not use Unicode glyphs as a substitute for required icons or illustrations. Do not persist temporary signed URLs.
 
@@ -114,7 +114,7 @@ After every mutation:
 1. Read back all relevant elements with `board.describeElements()` or `board.save()` in a fresh `univer_execute`.
 2. Verify IDs, kinds, bounds, text, styles, stacking, connector endpoints/routing, image sources, chart descriptions, and any layout-analysis findings.
 3. Review the DSH live preview for final route placement, clipping, marker paint, contrast, and overall canvas composition. Model readback alone cannot establish browser-routed geometry.
-4. State that screenshot evidence is unavailable when visual fidelity is material.
+4. Call `univer_screenshot` for the full Board and inspect its returned metadata, including rendered connector layout analysis when present. For a defect, capture either its `focusBounds` as `region` or the connector and endpoint IDs as `elementIds`, with useful `padding` and `scale`, then inspect the focused PNG. Re-run one full overview after fixes.
 5. Follow the `univer` ready/status workflow.
 
 Mind maps, tables, ink, and advanced editing remain outside this Skill's verified authoring contract. Board export is unsupported; deliver the ready worktree preview.

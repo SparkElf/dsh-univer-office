@@ -40,8 +40,9 @@
 - Univer 文件尚无 Unit 时，Viewer 使用现有空状态布局并显示“空文件”；
 - 模型可创建空 `.univer` 文件、管理 worktree 与 Unit、导入 Office 文件、查询 Univer API、修改、检查和导出内容；
 - 模型可对 Slide 执行不输出图片的真实布局检查，并把 workspace 内的 SVG 编译并应用到显式 Slide 页面；
+- 模型可从内置多 registry 资源库查找、读取并导出 SVG 资源，下载缓存由 Provider 持久管理；
+- 模型可把显式 Unit 渲染为 workspace 内 PNG，并在当前模型支持图片输入时以 DSH attachment 回读；Sheet 支持范围，Doc/Slide 支持页面，Slide 支持联系表，Board 支持区域与元素聚焦；
 - `ready` 与 `reopen` 属于模型工作流，`merge` 与 `discard` 只在用户明确要求且 DSH 审批通过后执行；
-- 当前不提供模型截图工具；视觉结果重要时必须明确说明尚未完成视觉验证。
 
 原型的文件布局、类名、HTTP 路径、CSS 类名、bash 命令解析方式和内部数据格式均不需要保留。
 
@@ -93,6 +94,9 @@ src/
       plugin.ts                      # Service Provider
       gateway-univer-service.ts      # 服务实现
       unit-content-operations.ts     # Unit 内容操作
+      render-source-operations.ts    # 截图主 Unit、引用 Unit 与图片资源装配
+      render-operations.ts           # browser-backed lint、SVG 编译与截图
+      resource-operations.ts         # 内置 SVG registry、缓存与安全导出
       worktree-operations.ts         # worktree 领域操作
       state-cache.ts                 # 有明确失效规则的缓存
     webServer/
@@ -119,7 +123,9 @@ src/
         export.ts
         lint.ts
         compile-svg.ts
+        screenshot.ts
         api.ts
+        resources.ts
     skills/
       plugin.ts                      # bundled lazy Skill Provider
     adapters/
@@ -235,13 +241,14 @@ bundled skill provider -> DSH skill registry
 
 `UniverService` 是 Host 内部唯一稳定的领域入口。Service Definition 只描述调用方依赖的行为，不暴露 HTTP、Gateway endpoint、worker 协议或子进程对象。
 
-服务能力分为四组：
+服务能力分为六组：
 
 - File 与状态：创建空 `.univer` 容器，读取 trunk、worktree 与 Unit 状态；
 - Collaboration：创建 worktree，执行 ready、reopen、merge 与 discard 生命周期操作；
 - Unit Content：在 draft worktree 中创建、移除或导入 Unit，以及检查、执行、导出和读取 machine render snapshot；
-- Render Authoring：对 Slide snapshot 执行布局检查，把 SVG 编译为 Facade program 并提交到显式 draft worktree；
+- Render：对 Slide snapshot 执行布局检查，把 SVG 编译为 Facade program 并提交到显式 draft worktree，以及为显式 Unit、依赖 Unit 和图片资源装配渲染源并生成 PNG；
 - API Reference：查找 API 候选并读取指定 Facade/方法的完整参考。
+- Resource Library：列出 registry、按语义搜索、读取 SVG、导出到显式 workspace 目录和清理 Provider-owned 缓存。
 
 所有文件操作都接收显式 workspace scope。Provider 必须将文件解析为绝对路径，并拒绝 scope 外路径。文件 ID、worktree ID 和 unit ID 在服务层使用 branded 类型，不能以无语义的裸字符串跨层传递。
 
@@ -290,13 +297,15 @@ Tools Consumer 注册面向模型的领域工具，而不是一个透传 CLI 的
 - `univer_export`
 - `univer_lint`
 - `univer_compile_svg`
+- `univer_screenshot`
 - `univer_api`
+- `univer_resources`
 
 每个工具有独立的参数 schema、结果 schema、超时/取消处理和纯 presentation。工具结果必须包含恢复 Client 预览目标所需的结构化文件、worktree 与 unit 标识，并进入 DSH 会话日志。领域失败使用 DSH 可持久化的稳定错误 code，并在模型可见文本中保留 `Error [CODE]`，使 Agent 不必解析自然语言即可选择恢复路径。Client 优先从 `tool/call` 与 `tool/result` 事件恢复目标，不依赖 bash 文本解析。
 
-`univer_status` 是发现文件状态与显式 Unit ID 的入口。所有内容工具要求显式 Unit ID，所有文件和输出路径都绑定当前 tool exec session 的 workspace，并在 Provider 边界再次验证。`ready` 提交修改等待审阅；同一任务需要继续修改时用 `reopen`。`merge` 与 `discard` 只有在用户明确要求时才可调用，并通过 `tools/pre-execute` 返回审批请求，不能由模型自行决定。
+`univer_status` 是发现文件状态与显式 Unit ID 的入口。所有内容工具要求显式 Unit ID，所有文件和输出路径都绑定当前 tool exec session 的 workspace，并在 Provider 边界再次验证。`univer_screenshot` 在读取文件前确认 attachment service、PNG 限制与当前模型图片输入能力，生成文件再次经过 workspace realpath 授权，再保存为持久 DSH image attachment；结构化文本保留恢复目标与图片元数据。`univer_resources` 的 cache root 只由 Provider 配置拥有，不向模型暴露；export 目录和每个实际输出文件都必须通过 workspace 授权。`ready` 提交修改等待审阅；同一任务需要继续修改时用 `reopen`。`merge` 与 `discard` 只有在用户明确要求时才可调用，并通过 `tools/pre-execute` 返回审批请求，不能由模型自行决定。
 
-包内 `univer` Skill 描述完整编排顺序，sheet、doc、slide、base 与 board Skill 只在对应 Unit 工作时按需加载，Embed 与跨 Unit 公式各有 Topic Skill。内容以同版本 Univer CLI runtime Skills 为基线：只移除插件未开放的 command，并把 CLI command 调用替换为结构化 DSH Tool 或 Client 自动预览。Slide Skill 要求新页面主动使用 `univer_compile_svg`，结构检查后对每个变更页运行 `univer_lint`。Skill 不提供截图能力；不确定或可能随 SDK 变化的 API 必须通过 `univer_api` 查询。
+包内 `univer` Skill 描述完整编排顺序，sheet、doc、slide、base 与 board Skill 只在对应 Unit 工作时按需加载，Embed 与跨 Unit 公式各有 Topic Skill。内容以同版本 Univer CLI runtime Skills 为基线：只移除插件未开放的 command，并把 CLI command 调用替换为结构化 DSH Tool 或 Client 自动预览。Slide Skill 要求新页面主动使用 `univer_compile_svg`，结构检查后对每个变更页运行 `univer_lint`，最终逐页运行 `univer_screenshot`；其他 Unit Skill 使用其范围、分页、工作台或画布截图目标。需要图标、Logo、Emoji 或插画时先通过 `univer_resources` 查找和导出。不确定或可能随 SDK 变化的 API 必须通过 `univer_api` 查询。
 
 Client 只解析结构化 `univer_*` 工具事件，不从 bash 命令或自由文本猜测文件与 worktree。
 
@@ -306,7 +315,7 @@ Client 是状态投影，不拥有 worktree 真相。预览目标来自可回放
 
 Client 通过 `univerTurnDefinition` 按 `callId` 配对结构化工具调用与结果，并分别归约生命周期、内容写入和读取操作；读取操作不能覆盖同一 Turn 已完成的 ready、reopen、merge 或 discard 转换。统一回合卡片把该投影与 Host `FileState` 组合，按权威状态打开 trunk、worktree 或 merge preview 完整页面；若 Host 明确确认投影中的文件已不存在，则不渲染该卡片，以覆盖 Agent 在同一 Turn 中创建并通过其他工具删除临时文件的场景。
 
-实时浮窗只由 `univer_new`、worktree create/reopen/ready 和内容写入主动拉起，纯 status、inspect、lint 与 export 不主动打开窗口。用户保持打开的文件或非终态 worktree 会在下一 Turn 继续显示；用户关闭优先，merged 与 discarded 清除打开意图。
+实时浮窗只由 `univer_new`、worktree create/reopen/ready 和内容写入主动拉起，纯 status、inspect、lint、screenshot 与 export 不主动打开窗口。用户保持打开的文件或非终态 worktree 会在下一 Turn 继续显示；用户关闭优先，merged 与 discarded 清除打开意图。
 
 Client 必须满足：
 
@@ -332,8 +341,10 @@ Client 必须满足：
 4. `univer_api` 使用包依赖的精确版本 API Reference，不调用外部 CLI；
 5. `univer_lint` 只返回布局 coverage 与 findings，不生成或返回图片；
 6. `univer_compile_svg` 只读取 session workspace 内的 SVG 与引用资源，并把生成程序提交到显式 draft worktree；
-7. Client 只从结构化工具事件恢复预览目标；
-8. 全新环境仅安装本插件即可完成创建、导入、修改、检查、布局 lint、SVG 页面编译、导出、预览和 worktree 修改审阅。
+7. `univer_screenshot` 复用随包 Render Machine，显式装配目标 Unit、公式引用 Unit、Embed child Unit 与 Gateway 图片资源，PNG 同时落到授权 workspace 和 DSH attachment；
+8. `univer_resources` 复用随包 manifest 与 HTTPS-only resource library，不调用外部 CLI，缓存位置来自已校验配置；
+9. Client 只从结构化工具事件恢复预览目标；
+10. 全新环境仅安装本插件即可完成创建、导入、修改、检查、布局 lint、SVG 页面编译、截图、资源查找/导出、Office 导出、预览和 worktree 修改审阅。
 
 ## 12. 构建与发布
 
@@ -351,6 +362,7 @@ Client 必须满足：
 - `provider`：路径 scope、缓存失效、Gateway 映射、worktree 状态与错误；
 - `webServer`：method、JSON、字段、会话授权和错误响应；
 - `tools`：schema、取消、结构化结果和 presentation；
+- `render/resources`：截图依赖装配、页数/像素/attachment 限制、资源下载取消、cache 隔离与 export 路径授权；
 - `skills`：发现顺序、按需加载、frontmatter 剥离和发布包收录；
 - `client`：事件恢复、轮询生命周期、浮窗交互、unit 切换和审阅 mutation；
 - `integration`：无全局 CLI 的全新环境中，仅安装插件完成端到端功能。

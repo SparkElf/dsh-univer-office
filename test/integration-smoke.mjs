@@ -18,6 +18,8 @@ const file = join(workspace, "smoke.univer");
 const source = join(workspace, "import.csv");
 const svgSource = join(workspace, "slide.svg");
 const exported = join(workspace, "smoke.xlsx");
+const screenshotOutput = join(workspace, "screenshots");
+const resourceOutput = join(workspace, "resources");
 await writeFile(source, "name,value\nalpha,1\nbeta,2\n");
 await writeFile(svgSource, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540"><rect width="960" height="540" fill="#f7f8fb"/><text x="80" y="160" font-family="Arial" font-size="54" fill="#182230">Bundled SVG</text></svg>');
 
@@ -90,6 +92,21 @@ try {
 		|| layout.result?.coverage?.pages?.length !== 1 || !Array.isArray(layout.result?.findings)) {
 		throw new Error(`Slide layout lint failed: ${JSON.stringify(layout)}`);
 	}
+	const screenshot = await service.screenshotUnit({
+		...scoped,
+		worktreeId,
+		unitId: slideUnitId,
+		output: screenshotOutput,
+		outputWorkspace: workspace,
+		target: { kind: "paged-unit", pages: [1], contactSheet: {}, scale: 1 },
+	});
+	if (screenshot.operation !== "screenshot" || screenshot.result.images.length !== 2
+		|| screenshot.result.images.some((image) => image.mediaType !== "image/png" || image.data.length === 0)) {
+		throw new Error(`Slide screenshot failed: ${JSON.stringify(screenshot)}`);
+	}
+	for (const image of screenshot.result.images) {
+		if ((await stat(image.path)).size === 0) throw new Error(`screenshot produced an empty file: ${image.path}`);
+	}
 
 	const executed = await service.executeUnitContent({
 		...scoped,
@@ -150,6 +167,43 @@ try {
 	const reference = await service.apiReference({ action: "show", queries: ["FRange.setValue"] });
 	if (reference.result?.[0]?.status !== "found") throw new Error(`API reference failed: ${JSON.stringify(reference)}`);
 
+	const registries = await service.resources({ action: "registries" });
+	if (!Array.isArray(registries.result?.registries) || registries.result.registries.length === 0) {
+		throw new Error(`resource registries failed: ${JSON.stringify(registries)}`);
+	}
+	const resources = await service.resources({ action: "find", queries: ["plausible"], limit: 1 });
+	const handle = resources.result?.resources?.[0]?.handle;
+	if (typeof handle !== "string") throw new Error(`resource find failed: ${JSON.stringify(resources)}`);
+	const originalFetch = globalThis.fetch;
+	globalThis.fetch = async (input, init) => {
+		const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+		if (url.startsWith("https://")) {
+			return new Response('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 2h20v20H2z"/></svg>', {
+				status: 200,
+				headers: { "content-type": "image/svg+xml; charset=utf-8" },
+			});
+		}
+		return originalFetch(input, init);
+	};
+	try {
+		const readResource = await service.resources({ action: "read", handle });
+		if (typeof readResource.result?.svg !== "string" || !readResource.result.svg.includes("<svg")) {
+			throw new Error(`resource read failed: ${JSON.stringify(readResource)}`);
+		}
+		const exportedResource = await service.resources({
+			action: "export",
+			handles: [handle],
+			output: resourceOutput,
+			outputWorkspace: workspace,
+		});
+		const resourcePath = exportedResource.result?.exported?.[0]?.path;
+		if (typeof resourcePath !== "string" || (await stat(resourcePath)).size === 0) {
+			throw new Error(`resource export failed: ${JSON.stringify(exportedResource)}`);
+		}
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
+
 	await service.exportUnitContent({ ...scoped, worktreeId, unitId, output: exported, outputWorkspace: workspace });
 	if ((await stat(exported)).size === 0) throw new Error("package-local export produced an empty file");
 
@@ -168,7 +222,7 @@ try {
 		throw new Error(`discard transition failed: ${JSON.stringify(discarded)}`);
 	}
 
-	console.log("integration smoke OK (new/status/Unit/import/API/execute/inspect/export/lint/compile-svg/Worktree lifecycle, no global CLI)");
+	console.log("integration smoke OK (new/status/Unit/import/API/execute/inspect/export/lint/compile-svg/screenshot/resources/Worktree lifecycle, no global CLI)");
 } finally {
 	await service.dispose();
 	const releasedPort = createNetServer();

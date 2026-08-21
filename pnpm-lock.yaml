@@ -33,6 +33,9 @@ importers:
       '@deepseek-ai/cordis':
         specifier: ^4.0.1
         version: 4.0.1(@deepseek-ai/cordis-plugin-include@1.0.6)(@deepseek-ai/cordis-plugin-loader@1.0.2)
+      '@deepseek-ai/dsh-attachment':
+        specifier: 0.1.0-rc.8
+        version: 0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)))(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1))
       '@deepseek-ai/dsh-client-locale':
         specifier: 0.1.0-rc.6
         version: 0.1.0-rc.6(2c3317810897131a7333e5f355dc71f9)
@@ -90,10 +93,16 @@ importers:
       '@univer-cli/headless-univer':
         specifier: 1.0.0-insiders.20260821-c2f0ba5
         version: 1.0.0-insiders.20260821-c2f0ba5(react@18.3.1)(rxjs@7.8.2)
+      '@univer-cli/resource-library':
+        specifier: 1.0.0-insiders.20260821-c2f0ba5
+        version: 1.0.0-insiders.20260821-c2f0ba5
       '@univer-cli/svg-facade':
         specifier: 1.0.0-insiders.20260821-c2f0ba5
         version: 1.0.0-insiders.20260821-c2f0ba5
       '@univer-cli/unit-layout-lint':
+        specifier: 1.0.0-insiders.20260821-c2f0ba5
+        version: 1.0.0-insiders.20260821-c2f0ba5(react@18.3.1)(rxjs@7.8.2)
+      '@univer-cli/unit-screenshot':
         specifier: 1.0.0-insiders.20260821-c2f0ba5
         version: 1.0.0-insiders.20260821-c2f0ba5(react@18.3.1)(rxjs@7.8.2)
       '@univer-cli/univer-collaboration-runtime':
@@ -2526,11 +2535,17 @@ packages:
   '@univer-cli/headless-univer@1.0.0-insiders.20260821-c2f0ba5':
     resolution: {integrity: sha512-xbSVZx1TNVs53JROw7AYW5qbaaTYJNUnDRT0P8dpIo4OFaVQSXYDIksV9f5smv3/UeGHQZkuJqW/QmpMUoev0A==}
 
+  '@univer-cli/resource-library@1.0.0-insiders.20260821-c2f0ba5':
+    resolution: {integrity: sha512-tSd/pw8VE4x+RWvvLuAiQN8cB2vYLtAOrZq8iiwWoHqCwZrJeJetKeIdt3rBb+IHdB7kyDKh2uCfQMK1TfztrA==}
+
   '@univer-cli/svg-facade@1.0.0-insiders.20260821-c2f0ba5':
     resolution: {integrity: sha512-eyY1Ws5AHrrbPQN7dclDEE/167xGLzxEVW61ZwuI7aQsbRBX9Kn8XzLGx2l70eqbgtWA7nG8Sz0QVfqz/GN2NQ==}
 
   '@univer-cli/unit-layout-lint@1.0.0-insiders.20260821-c2f0ba5':
     resolution: {integrity: sha512-MKm97kL9G4rebeeavCrwAUlWEGhbzOtjGt6xwwbZYPtw4iQCWbUqZY0zxUURZ9hoJExnq393/vzeasywX7VzdA==}
+
+  '@univer-cli/unit-screenshot@1.0.0-insiders.20260821-c2f0ba5':
+    resolution: {integrity: sha512-mlSywckBKP2lxGMkAWcDcA1cHfCR4cDriNIq2eB5iLVV2BNKGr3RQV0I/DMWTI8dAsn6sUGgTWmt6bhMGjBhpQ==}
 
   '@univer-cli/univer-collaboration-runtime@1.0.0-insiders.20260821-c2f0ba5':
     resolution: {integrity: sha512-i5/aBkCaEBkKZGGP/TgOKsM36Enit53+/EwTghZtgMeQskCKA0QFrZAx8Y2kgY1ssbzCX29OjuhIKYJpoNg2PQ==}
@@ -6267,9 +6282,22 @@ snapshots:
       - react
       - rxjs
 
+  '@univer-cli/resource-library@1.0.0-insiders.20260821-c2f0ba5': {}
+
   '@univer-cli/svg-facade@1.0.0-insiders.20260821-c2f0ba5': {}
 
   '@univer-cli/unit-layout-lint@1.0.0-insiders.20260821-c2f0ba5(react@18.3.1)(rxjs@7.8.2)':
+    dependencies:
+      '@univer-cli/univer-render-runtime': 1.0.0-insiders.20260821-c2f0ba5(react@18.3.1)(rxjs@7.8.2)
+    transitivePeerDependencies:
+      - bufferutil
+      - proxy-agent
+      - react
+      - rxjs
+      - utf-8-validate
+      - yauzl
+
+  '@univer-cli/unit-screenshot@1.0.0-insiders.20260821-c2f0ba5(react@18.3.1)(rxjs@7.8.2)':
     dependencies:
       '@univer-cli/univer-render-runtime': 1.0.0-insiders.20260821-c2f0ba5(react@18.3.1)(rxjs@7.8.2)
     transitivePeerDependencies:

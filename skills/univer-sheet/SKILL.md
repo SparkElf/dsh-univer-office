@@ -130,5 +130,6 @@ After every mutation:
 1. Call `univer_inspect` with the exact `unitId`, worktree, and a range such as `Sheet1!A1:D20`.
 2. Verify stored values, types, formulas, display values, row order, and task-specific calculations.
 3. Read styles, number formats, rich text, images, charts, tables, or other omitted fields through a fresh read-only `univer_execute` call.
-4. Recalculate and re-read formula results before `univer_export`.
-5. Follow the `univer` ready/status handoff workflow.
+4. For visually relevant formatting, charts, images, or layout, call `univer_screenshot` with the exact `unitId`, worktree or trunk, a workspace `output` directory, and a narrow `range` plus optional `sheetName`. Inspect the returned PNG; use an unscoped full-workbook capture only when the task requires the complete workbook view.
+5. Recalculate and re-read formula results before `univer_export`.
+6. Follow the `univer` ready/status handoff workflow.

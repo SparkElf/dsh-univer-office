@@ -17,12 +17,16 @@ import type {
   ImportUnitContentRequest,
   InspectUnitContentRequest,
   LintUnitLayoutRequest,
+  ResourceOperationRequest,
+  ScreenshotServiceResult,
+  ScreenshotUnitRequest,
   CompileSvgRequest,
   JsonValue,
   NewUniverFileRequest,
   UnitOperationRequest,
   UniverApiResult,
   UniverOperationResult,
+  UniverResourceResult,
   WorktreeActionRequest,
   WorktreeOperationRequest,
 } from '../service/types.ts'
@@ -34,6 +38,8 @@ import { UnitContentOperations } from './unit-content-operations.ts'
 import { StateCache } from './state-cache.ts'
 import { WorktreeOperations } from './worktree-operations.ts'
 import { RenderOperations } from './render-operations.ts'
+import { RenderSourceOperations } from './render-source-operations.ts'
+import { ResourceOperations } from './resource-operations.ts'
 
 /** Local Service Provider backed by the bundled Gateway and Unit content worker. */
 export class GatewayUniverService extends UniverService {
@@ -41,6 +47,8 @@ export class GatewayUniverService extends UniverService {
   private readonly unitContent: UnitContentOperations
   private readonly worktrees: WorktreeOperations
   private readonly render: RenderOperations
+  private readonly renderSources: RenderSourceOperations
+  private readonly resourceOperations: ResourceOperations
   private readonly stateCache: StateCache<string, FileState>
   private readonly unitCache: StateCache<string, readonly import('../../shared/wire/state.ts').ChangedUnit[]>
   private readonly api: ApiReference
@@ -55,6 +63,11 @@ export class GatewayUniverService extends UniverService {
     )
     this.worktrees = new WorktreeOperations(config.gatewayRequestTimeoutMs, config.gatewayMutationTimeoutMs)
     this.render = new RenderOperations()
+    this.renderSources = new RenderSourceOperations(this.unitContent, config.gatewayRequestTimeoutMs)
+    this.resourceOperations = new ResourceOperations(
+      config.resourceCacheRoot,
+      config.resourceDownloadTimeoutMs,
+    )
     this.stateCache = new StateCache(config.stateCacheTtlMs)
     this.unitCache = new StateCache(config.unitCacheTtlMs)
     this.api = createStandardApiReference()
@@ -255,6 +268,37 @@ export class GatewayUniverService extends UniverService {
     return { ok: true, operation: 'lint', file: request.file, result }
   }
 
+  /** Render one explicit Unit into workspace PNGs for model visual verification. */
+  async screenshotUnit(
+    request: ScreenshotUnitRequest,
+    signal?: AbortSignal,
+  ): Promise<ScreenshotServiceResult> {
+    await Promise.all([
+      assertAuthorizedPath(request.workspace, request.file, true),
+      assertAuthorizedPath(request.outputWorkspace, request.output, false),
+    ])
+    const gateway = await this.requireGateway()
+    const source = await this.renderSources.load(
+      gateway,
+      request.file,
+      request.unitId,
+      request.worktreeId,
+      signal,
+    )
+    const result = await this.render.screenshot({
+      source,
+      output: request.output,
+      maxPages: this.config.screenshotMaxPages,
+      maxPixels: this.config.screenshotMaxPixels,
+      ...(request.target === undefined ? {} : { target: request.target }),
+      ...(signal === undefined ? {} : { signal }),
+    })
+    await Promise.all(result.images.map(async (image) => {
+      await assertAuthorizedPath(request.outputWorkspace, image.path, true)
+    }))
+    return { ok: true, operation: 'screenshot', file: request.file, result }
+  }
+
   /** Compile one SVG and commit the generated Slide mutations to a draft worktree. */
   async compileSvg(request: CompileSvgRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
     await Promise.all([
@@ -305,6 +349,11 @@ export class GatewayUniverService extends UniverService {
       ? this.api.find({ terms: request.queries, ...request.unit === undefined ? {} : { unit: request.unit }, ...request.limit === undefined ? {} : { limit: request.limit } })
       : this.api.show(request.queries)
     return Promise.resolve({ ok: true, operation: 'api', result: result as unknown as JsonValue })
+  }
+
+  /** Search, read, export, or clear the bundled SVG resource library. */
+  resources(request: ResourceOperationRequest, signal?: AbortSignal): Promise<UniverResourceResult> {
+    return this.resourceOperations.execute(request, signal)
   }
 
   /** Stop Gateway ownership and clear transient state. */

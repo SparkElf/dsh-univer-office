@@ -25,6 +25,17 @@ Use the structured `univer_*` tools whenever the task creates, reads, changes, c
 - `ready` rejects writes until `reopen`. `merged` and `discarded` are terminal; never reuse them.
 - Tool success is not correctness evidence. Read the changed model back and verify task-specific assertions.
 
+## SVG resources
+
+When a Unit needs icons, logos, emoji, or illustrations, use the bundled resource library instead of inventing placeholders:
+
+1. Call `univer_resources` with `action: "registries"` when registry choice matters.
+2. Call `univer_resources` with `action: "find"` and one or more semantic `queries`; retain the exact returned handles.
+3. Call it with `action: "export"`, those `handles`, and an explicit workspace `output` directory.
+4. Reference the exported SVG files from Slide SVG, or read one handle with `action: "read"` when inline SVG text is required.
+
+Only `colorEditable: true` resources may follow an authored color. Fixed logos, color emoji, and illustrations keep their intrinsic colors. Reuse the exported file; do not copy partial path data from it.
+
 ## Required workflow
 
 1. Call `univer_status` to discover Unit IDs and worktree states.
@@ -35,10 +46,11 @@ Use the structured `univer_*` tools whenever the task creates, reads, changes, c
 6. Mutate through `univer_execute`, or through `univer_compile_svg` for generated Slide page content.
 7. Read the changed scope with `univer_inspect`; use a fresh read-only `univer_execute` when inspection omits a required model field.
 8. For every changed Slide page, call `univer_lint` and resolve or explicitly justify each finding.
-9. Export with `univer_export` only when requested and only from the verified scope.
-10. Mark the worktree `ready` and confirm it with `univer_status`.
+9. For visually relevant changes, call `univer_screenshot` with an explicit workspace output directory and the narrowest useful Unit-specific target. Inspect every returned image; screenshots complement rather than replace structural readback or Slide lint.
+10. Export with `univer_export` only when requested and only from the verified scope.
+11. Mark the worktree `ready` and confirm it with `univer_status`.
 
-The DSH client automatically renders live worktree content and the ready review panel from tool results. Treat that preview as the visual handoff surface; there is no model-facing show/open tool. Screenshot evidence is not available in this plugin version, so never claim pixel-level visual verification.
+`univer_screenshot` returns model-visible PNG evidence and writes the same PNGs under its explicit `output` directory. It requires an image-capable current model route. The DSH client also renders live worktree content and the ready review panel from tool results; that preview remains the user-facing handoff surface because there is no model-facing show/open tool. Claim visual verification only for images actually inspected in the current result.
 
 Merge or discard only when the user explicitly requests that outcome. Both operations change review state and are not routine completion steps.
 
@@ -66,7 +78,9 @@ Never reopen or reuse a merged or discarded worktree; create a new worktree inst
 | Write | `univer_compile_svg` | Compile workspace SVG into one explicit Slide page with browser text metrics. |
 | Verify | `univer_inspect` | Read structured Unit content from trunk or one worktree. |
 | Verify | `univer_lint` | Check Slide text off-page, container escape, and text overlap. |
+| Verify | `univer_screenshot` | Render Sheet, Doc, Slide, Base, or Board PNG evidence and return it to an image-capable model. |
 | Reference | `univer_api` | Find or show exact version-matched Facade symbols. |
+| Reference | `univer_resources` | List/find/read/export bundled SVG resources or clear their download cache. |
 | Deliver | `univer_export` | Export Sheet/Base to xlsx/csv/tsv, Doc to docx, or Slide to pptx. |
 
 ## Facade execution
@@ -89,7 +103,7 @@ Do not redeclare injected variables. Execution is ESM and has no `require`. Reso
 
 ## Unsupported CLI-only capabilities
 
-Do not invent equivalents for CLI maintenance, daemon/configuration, resource registry search/export, `compile-typst`, screenshots, optimization, or shell command help. Use the bundled skills and tools available in DSH; if the task requires a missing capability, report that exact gap.
+Do not invent equivalents for CLI maintenance, daemon/configuration, `compile-typst`, optimization, or shell command help. Use the bundled DSH tools for resources and screenshots; if the task requires another missing capability, report that exact gap.
 
 ## Failure recovery
 

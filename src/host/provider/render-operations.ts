@@ -1,6 +1,6 @@
 import { readFileSync, realpathSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import {
   compileSvgToFacade,
   isSvgFacadeError,
@@ -11,16 +11,28 @@ import {
 } from '@univer-cli/svg-facade'
 import { createUnitLayoutLint, isUnitLayoutLintError } from '@univer-cli/unit-layout-lint'
 import {
+  createUnitScreenshot,
+  isUnitScreenshotError,
+  type ScreenshotImage,
+  type UnitScreenshotInput,
+} from '@univer-cli/unit-screenshot'
+import {
   createUniverRenderRuntime,
   isUniverRenderError,
   UNIVER_RENDER_BROWSER_ENV_VAR,
   type UniverRenderRuntime,
+  type UniverRenderUnit,
   type UniverSlideLayoutRuntime,
   type UniverTextMeasureRuntime,
 } from '@univer-cli/univer-render-runtime'
 import type { IDocumentData } from '@univerjs/core'
 import { RENDER_MACHINE_ROOT } from '../artifacts/paths.ts'
-import type { JsonValue, UniverUnitKind } from '../service/types.ts'
+import type {
+  JsonValue,
+  ScreenshotServiceImage,
+  ScreenshotTarget,
+  UniverUnitKind,
+} from '../service/types.ts'
 import { UniverError } from '../service/errors.ts'
 import { UNIVER_LICENSE } from '../../workers/unit-content/license.ts'
 
@@ -62,6 +74,35 @@ export class RenderOperations {
         ...(signal === undefined ? {} : { signal }),
       })
       return report as unknown as JsonValue
+    } catch (error) {
+      throw renderError(error)
+    } finally {
+      await runtime.close()
+    }
+  }
+
+  /** Render one Unit snapshot to PNG files and return attachment-ready bytes. */
+  async screenshot(input: {
+    readonly source: UniverRenderUnit
+    readonly output: string
+    readonly maxPages: number
+    readonly maxPixels: number
+    readonly target?: ScreenshotTarget
+    readonly signal?: AbortSignal
+  }): Promise<{
+    readonly unitId: string
+    readonly unitType: UniverUnitKind
+    readonly images: readonly ScreenshotServiceImage[]
+  }> {
+    const runtime = await this.openRuntime(input.signal)
+    try {
+      const screenshot = createUnitScreenshot({
+        runtime,
+        limits: { maxPages: input.maxPages, maxPixels: input.maxPixels },
+      })
+      const result = await screenshot.capture(captureInput(input.source, input.target, input.signal))
+      const images = await writeScreenshotImages(result.images, input.output, input.signal)
+      return { unitId: result.unitId, unitType: result.unitType, images }
     } catch (error) {
       throw renderError(error)
     } finally {
@@ -112,6 +153,122 @@ export class RenderOperations {
     } catch (error) {
       throw renderError(error)
     }
+  }
+}
+
+function captureInput(
+  source: UniverRenderUnit,
+  target: ScreenshotTarget | undefined,
+  signal: AbortSignal | undefined,
+): UnitScreenshotInput {
+  const common = signal === undefined ? source : { ...source, signal }
+  if (target === undefined) return common
+  if (source.unitType === 'sheet' && target.kind === 'sheet-range') {
+    return { ...source, target, ...(signal === undefined ? {} : { signal }) }
+  }
+  if (target.kind === 'paged-unit') {
+    if (source.unitType === 'doc') {
+      if (target.contactSheet !== undefined || !isNumericPages(target.pages)) {
+        throw new UniverError('Doc screenshots accept numeric pages and no contact sheet.', 'SCREENSHOT_TARGET_INVALID')
+      }
+      return {
+        ...source,
+        target: {
+          kind: 'doc-pages',
+          ...(target.pages === undefined ? {} : { pages: target.pages }),
+          ...(target.scale === undefined ? {} : { scale: target.scale }),
+        },
+        ...(signal === undefined ? {} : { signal }),
+      }
+    }
+    if (source.unitType === 'slide') {
+      return {
+        ...source,
+        target: {
+          kind: 'slide-pages',
+          ...(target.pages === undefined ? {} : { pages: target.pages }),
+          ...(target.contactSheet === undefined ? {} : { contactSheet: target.contactSheet }),
+          ...(target.scale === undefined ? {} : { scale: target.scale }),
+        },
+        ...(signal === undefined ? {} : { signal }),
+      }
+    }
+  }
+  if (source.unitType === 'board' && target.kind === 'board-content') {
+    return { ...source, target, ...(signal === undefined ? {} : { signal }) }
+  }
+  if (target.kind === 'unit-viewport') {
+    if (source.unitType === 'sheet') {
+      return { ...source, target: { kind: 'sheet-viewport', scale: target.scale }, ...(signal === undefined ? {} : { signal }) }
+    }
+    if (source.unitType === 'doc') {
+      return { ...source, target: { kind: 'doc-pages', scale: target.scale }, ...(signal === undefined ? {} : { signal }) }
+    }
+    if (source.unitType === 'slide') {
+      return { ...source, target: { kind: 'slide-pages', scale: target.scale }, ...(signal === undefined ? {} : { signal }) }
+    }
+    if (source.unitType === 'base') {
+      return { ...source, target: { kind: 'base-view', scale: target.scale }, ...(signal === undefined ? {} : { signal }) }
+    }
+    return { ...source, target: { kind: 'board-content', scale: target.scale }, ...(signal === undefined ? {} : { signal }) }
+  }
+  throw new UniverError(
+    `${target.kind} screenshot target is invalid for ${source.unitType}.`,
+    'SCREENSHOT_TARGET_INVALID',
+  )
+}
+
+function isNumericPages(
+  pages: readonly (number | string)[] | undefined,
+): pages is readonly number[] | undefined {
+  return pages === undefined || pages.every((page) => typeof page === 'number')
+}
+
+async function writeScreenshotImages(
+  images: readonly ScreenshotImage[],
+  output: string,
+  signal?: AbortSignal,
+): Promise<readonly ScreenshotServiceImage[]> {
+  try {
+    signal?.throwIfAborted()
+    await mkdir(output, { recursive: true })
+    return await Promise.all(images.map(async (image) => {
+      signal?.throwIfAborted()
+      if (basename(image.name) !== image.name) {
+        throw new UniverError(`Unsafe screenshot image name: ${image.name}`, 'SCREENSHOT_OUTPUT_INVALID')
+      }
+      const path = resolve(output, image.name)
+      await writeFile(path, image.bytes, signal === undefined ? undefined : { signal })
+      signal?.throwIfAborted()
+      return {
+        data: Buffer.from(image.bytes).toString('base64'),
+        height: image.height,
+        mediaType: image.mediaType,
+        name: image.name,
+        path,
+        width: image.width,
+        metadata: screenshotMetadata(image),
+      }
+    }))
+  } catch (error) {
+    if (error instanceof UniverError) throw error
+    throw new UniverError('Failed to write screenshot PNG files.', 'SCREENSHOT_WRITE_FAILED', { cause: error })
+  }
+}
+
+function screenshotMetadata(image: ScreenshotImage): JsonValue {
+  return {
+    ...(image.boardSelector === undefined ? {} : { boardSelector: image.boardSelector as unknown as JsonValue }),
+    ...(image.contentBounds === undefined ? {} : { contentBounds: image.contentBounds as unknown as JsonValue }),
+    ...(image.layoutAnalysis === undefined ? {} : { layoutAnalysis: image.layoutAnalysis as unknown as JsonValue }),
+    ...(image.padding === undefined ? {} : { padding: image.padding }),
+    ...(image.page === undefined ? {} : { page: image.page }),
+    ...(image.pageId === undefined ? {} : { pageId: image.pageId }),
+    ...(image.range === undefined ? {} : { range: image.range }),
+    ...(image.role === undefined ? {} : { role: image.role }),
+    ...(image.scale === undefined ? {} : { scale: image.scale }),
+    ...(image.sheetName === undefined ? {} : { sheetName: image.sheetName }),
+    ...(image.tiles === undefined ? {} : { tiles: image.tiles }),
   }
 }
 
@@ -196,6 +353,9 @@ function renderError(error: unknown): Error {
   }
   if (isUnitLayoutLintError(error)) {
     return new UniverError(error.message, `UNIT_LAYOUT_LINT_${error.code}`, { cause: error })
+  }
+  if (isUnitScreenshotError(error)) {
+    return new UniverError(error.message, `SCREENSHOT_${error.code}`, { cause: error })
   }
   if (isSvgFacadeError(error)) {
     return new UniverError(error.message, `SVG_FACADE_${error.code}`, { cause: error })

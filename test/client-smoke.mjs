@@ -237,7 +237,19 @@ if (typeof dockInjected.getViewerLocale !== 'function' || typeof tailInjected.ge
     event: { type: 'tool/call', data: { turn: 7, step: 1, callId: 'call-status', name: 'univer_status', arguments: JSON.stringify({ file: '/x/proj/notes/demo.univer' }) } },
   }
   state = def.update(mkContext(state), laterStatus)
-  if (state.files[0].operations.length !== 2 || state.files[0].operations[0].action !== 'ready') throw new Error('later reads must preserve ready operation semantics')
+  const screenshotCall = {
+    id: '7', role: 'update', location: { kind: 'turn', turn: 7 },
+    event: { type: 'tool/call', data: { turn: 7, step: 1, callId: 'call-screenshot', name: 'univer_screenshot', arguments: JSON.stringify({ file: '/x/proj/notes/demo.univer', worktreeId: 'wt-abc12345', unitId: 'unit-1', output: 'shots' }) } },
+  }
+  state = def.update(mkContext(state), screenshotCall)
+  const screenshotResult = {
+    id: '7', role: 'update', location: { kind: 'turn', turn: 7 },
+    event: { type: 'tool/result', data: { turn: 7, step: 1, message: { content: [{ type: 'tool-result', toolCallId: 'call-screenshot', content: [{ type: 'text', text: JSON.stringify({ operation: 'screenshot', file: '/x/proj/notes/demo.univer', result: { unitId: 'unit-1', images: [{ name: 'page-1.png' }] } }) }, { type: 'image', attachment: { attachmentId: 'fixture-image' } }] }] } } },
+  }
+  state = def.update(mkContext(state), screenshotResult)
+  if (state.files[0].operations.length !== 3 || state.files[0].operations[0].action !== 'ready' || state.files[0].operations[2].name !== 'screenshot') {
+    throw new Error('later status/screenshot reads must preserve ready operation semantics and structured screenshot replay')
+  }
   const locationData = def.buildLocationData(mkContext(state), 'turn')
   if (locationData === null || locationData.key !== 'univerTurn' || locationData.value.files.length !== 1) throw new Error('buildLocationData wrong')
 }

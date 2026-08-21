@@ -72,6 +72,6 @@ After each mutation, use a fresh read-only `univer_execute` to verify:
 - record values and calculated Formula results;
 - view IDs, types, filters, sorting, grouping, and visible fields required by the task.
 
-Use `univer_inspect` for the Unit overview when applicable, then use the DSH live preview for the opening table/view. Screenshot evidence is unavailable, so do not claim pixel-level workbench verification.
+Use `univer_inspect` for the Unit overview when applicable, then call `univer_screenshot` with the Base `unitId`, selected worktree or trunk, and an explicit workspace `output` directory. Inspect the returned full-workbench PNG for the opening active table/view. Base screenshots accept only common screenshot arguments; do not pass Sheet ranges, Slide pages, or Board selectors.
 
 Base may export to `.xlsx`, `.csv`, or `.tsv` through `univer_export`. Await calculation and complete readback before export.

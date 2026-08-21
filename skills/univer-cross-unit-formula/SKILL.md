@@ -176,7 +176,7 @@ After the final mutation:
 1. For a cell, resolve a fresh range and assert exact formula plus expected cached value.
 2. For a Shape, resolve by stable ID and assert `isFormulaShape()`, exact formula, and successful result with expected raw value, display text, and number format.
 3. Change one referenced Source value, await calculation, and prove the consumer changes as expected.
-4. Inspect Host and Source Units, then review the DSH live preview for the selected cell or Shape, responsiveness, geometry, number format, and clipping. Screenshot evidence is unavailable.
+4. Inspect Host and Source Units, then follow the Host Unit Skill's `univer_screenshot` workflow. Confirm the selected cell or Shape renders, the UI remains responsive, and geometry, number format, and clipping are correct in the returned image. Browser availability of an unloaded external Source is product-dependent; do not claim a visually updated result unless the captured View resolves it.
 5. Complete the `univer` readback, ready, and status workflow.
 
 Headless model readback is the calculation evidence. Do not claim Viewer resolution of an unloaded Source unless the actual preview demonstrates it.

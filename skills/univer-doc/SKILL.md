@@ -143,7 +143,7 @@ After each mutation:
 
 1. Call `univer_inspect` for the document overview and relevant paragraph/range when supported.
 2. Use a fresh read-only `univer_execute` to confirm full paragraph text/order, stable IDs, styles, lists/tasks, table dimensions, image identities, chart descriptions, document flavor, section breaks, headers, footers, and page setup required by the task.
-3. Review the live DSH preview for obvious layout failures. Logical inspection cannot prove wrapping or physical pagination, and screenshot evidence is unavailable; state that limitation when layout is material.
+3. Call `univer_screenshot` with the Doc `unitId`, selected worktree or trunk, and an explicit workspace `output` directory. Inspect every returned page PNG for wrapping, physical pagination, image placement, and layout failures. Logical inspection alone cannot prove these facts.
 4. If `.docx` delivery is requested, call `univer_export` only after structural readback succeeds.
 5. Follow the `univer` ready/status handoff workflow.
 

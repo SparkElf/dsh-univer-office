@@ -49,5 +49,5 @@ After mutation:
 1. Re-read the returned child Facade and descriptor in a fresh `univer_execute`.
 2. Verify the exact child Unit ID/type, ResourceRef, host surface, interaction mode, and host anchor/placement.
 3. Inspect both host and child Units with `univer_inspect` where useful.
-4. Review the DSH live worktree preview and confirm the child renders inside its host. Screenshot evidence is unavailable.
+4. Follow the Host Unit Skill's `univer_screenshot` workflow and inspect the returned PNG to confirm the child renders inside its host. Structural ResourceRef readback remains required because a screenshot alone does not prove the child ID/type binding.
 5. Follow the `univer` ready/status workflow.

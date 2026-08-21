@@ -38,6 +38,8 @@ const core = await ctx.skills.get("univer");
 if (
 	core === undefined ||
 	!core.content.includes("univer_status") ||
+	!core.content.includes("univer_screenshot") ||
+	!core.content.includes("univer_resources") ||
 	!core.content.includes("Do not wait for the user to name a tool") ||
 	!core.content.includes("Error [CODE]: message") ||
 	core.content.startsWith("---")
@@ -51,9 +53,23 @@ if (
 	!slide.description.includes("Use proactively") ||
 	!slide.content.includes("univer_compile_svg") ||
 	!slide.content.includes("univer_lint") ||
+	!slide.content.includes("univer_screenshot") ||
+	!slide.content.includes("univer_resources") ||
 	!slide.content.includes("A new Slide Unit already contains one empty page")
 ) {
 	throw new Error("bundled Slide skill is missing proactive generation guidance");
+}
+
+for (const unit of ["univer-base", "univer-board", "univer-doc", "univer-sheet", "univer-slide"]) {
+	const skill = await ctx.skills.get(unit);
+	if (
+		skill === undefined ||
+		!skill.content.includes("univer_screenshot") ||
+		skill.content.includes("Screenshot evidence is unavailable") ||
+		skill.content.includes("Screenshot generation and pixel comparison are unavailable")
+	) {
+		throw new Error(`bundled Unit skill is missing current screenshot verification guidance: ${unit}`);
+	}
 }
 
 const chartContracts = [

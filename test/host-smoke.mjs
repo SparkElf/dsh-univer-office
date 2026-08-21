@@ -14,11 +14,26 @@ const { createUniverRouter, resolveConfig } = UniverPlugin
 
 const defaultConfig = resolveConfig()
 if (defaultConfig.gatewayPort !== 9080) throw new Error(`default Gateway port must be 9080: ${JSON.stringify(defaultConfig)}`)
+if (defaultConfig.screenshotMaxPages !== 30 || defaultConfig.screenshotMaxPixels !== 16_777_216) {
+  throw new Error(`default screenshot limits drifted: ${JSON.stringify(defaultConfig)}`)
+}
+if (!defaultConfig.resourceCacheRoot.endsWith('/cache/dsh-univer-office/resources')) {
+  throw new Error(`default resource cache root drifted: ${defaultConfig.resourceCacheRoot}`)
+}
 try {
   resolveConfig({ gatewayPort: 0 })
   throw new Error('zero Gateway port must be rejected')
 } catch (error) {
   if (!(error instanceof Error) || !error.message.includes('gatewayPort')) throw error
+}
+for (const invalid of [{ screenshotMaxPages: 0 }, { resourceCacheRoot: 'relative/cache' }]) {
+  try {
+    resolveConfig(invalid)
+    throw new Error(`invalid config must be rejected: ${JSON.stringify(invalid)}`)
+  } catch (error) {
+    const key = Object.keys(invalid)[0]
+    if (!(error instanceof Error) || !error.message.includes(key)) throw error
+  }
 }
 
 const WORKSPACE = await mkdtemp(join(tmpdir(), 'dsh-univer-host-smoke-'))
@@ -130,13 +145,51 @@ try {
 
   await toolContext.plugin(SystemPrompt)
   await toolContext.plugin(ToolRuntime)
+  toolContext.provide('attachments', {
+    imageLimits: {
+      mediaTypes: ['image/png'],
+      maxImageBytes: 10_000_000,
+      maxMessageImageBytes: 20_000_000,
+    },
+    async saveImage() { throw new Error('screenshot must not reach attachment persistence in this test') },
+  })
+  toolContext.provide('llm', {
+    async resolveModelInfo() { return { inputModalities: ['image'] } },
+  })
   await toolContext.plugin(UniverPlugin, {
     gatewayPort: 65_535,
     gatewayStartupTimeoutMs: 50,
     gatewayRequestTimeoutMs: 50,
     skills: false,
   })
-  const owner = { ctx: toolContext, session: { header: { cwd: WORKSPACE } } }
+  const owner = {
+    ctx: toolContext,
+    options: { provider: 'host-smoke', model: 'vision' },
+    session: {
+      header: { cwd: WORKSPACE },
+      requestHeader() { return { config: { provider: 'host-smoke', model: 'vision' } } },
+    },
+  }
+  const resourcesResult = await toolContext.tools.execute({
+    signal: new AbortController().signal,
+    callId: CallId('host-smoke-resources'),
+    name: 'univer_resources',
+    arguments: { action: 'registries' },
+    agent: owner,
+  })
+  if (resourcesResult.isError || !toolText(resourcesResult).includes('"operation":"resources"')) {
+    throw new Error(`resource registries must be available without Gateway: ${JSON.stringify(resourcesResult)}`)
+  }
+
+  const screenshotResult = await toolContext.tools.execute({
+    signal: new AbortController().signal,
+    callId: CallId('host-smoke-screenshot'),
+    name: 'univer_screenshot',
+    arguments: { file: FILE, unitId: 'unit-1', output: 'screenshots', pages: [1] },
+    agent: owner,
+  })
+  assertToolError(screenshotResult, 'GATEWAY_UNAVAILABLE')
+
   const missingToolResult = await toolContext.tools.execute({
     signal: new AbortController().signal,
     callId: CallId('host-smoke-missing-path'),
@@ -186,10 +239,14 @@ function assertToolError(result, code) {
   if (!result.isError || result.error.info?.name !== 'UniverError' || result.error.info.code !== code) {
     throw new Error(`tool failure must retain ${code}: ${JSON.stringify(result)}`)
   }
-  const content = result.content.map(block => block.type === 'text' ? block.text : '').join('')
+  const content = toolText(result)
   if (!content.startsWith(`Error [${code}]: `)) {
     throw new Error(`model-facing tool failure must include ${code}: ${JSON.stringify(result.content)}`)
   }
+}
+
+function toolText(result) {
+  return result.content.map(block => block.type === 'text' ? block.text : '').join('')
 }
 
 async function listenOrAcceptOccupied(server, port) {

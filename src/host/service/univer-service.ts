@@ -27,6 +27,8 @@ export abstract class UniverService extends Service implements UniverServiceMeth
   abstract importUnitContent(...args: Parameters<UniverServiceMethods['importUnitContent']>): ReturnType<UniverServiceMethods['importUnitContent']>
   abstract exportUnitContent(...args: Parameters<UniverServiceMethods['exportUnitContent']>): ReturnType<UniverServiceMethods['exportUnitContent']>
   abstract lintUnitLayout(...args: Parameters<UniverServiceMethods['lintUnitLayout']>): ReturnType<UniverServiceMethods['lintUnitLayout']>
+  abstract screenshotUnit(...args: Parameters<UniverServiceMethods['screenshotUnit']>): ReturnType<UniverServiceMethods['screenshotUnit']>
   abstract compileSvg(...args: Parameters<UniverServiceMethods['compileSvg']>): ReturnType<UniverServiceMethods['compileSvg']>
   abstract apiReference(...args: Parameters<UniverServiceMethods['apiReference']>): ReturnType<UniverServiceMethods['apiReference']>
+  abstract resources(...args: Parameters<UniverServiceMethods['resources']>): ReturnType<UniverServiceMethods['resources']>
 }

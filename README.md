@@ -87,11 +87,11 @@ Create a sales Sheet and a summary Slide in the same .univer file, with the Slid
 
 | Content | Create and edit | Verify and review | Import | Export |
 | --- | --- | --- | --- | --- |
-| Sheet | Cells, formulas, styles, tables, charts, pivots, filters, validation, images, and more | Structured range inspection, recalculation, live preview | `.xlsx` `.csv` `.tsv` | `.xlsx` `.csv` `.tsv` |
-| Doc | Paragraphs, rich text, lists, tasks, tables, images, charts, headers, footers, pagination | Document readback, live preview | `.docx` | `.docx` |
-| Slide | Pages, text, shapes, images, tables, charts, SVG layouts, transitions | Structure inspection, text bounds/overflow/overlap lint, live preview | `.pptx` | `.pptx` |
-| Base | Tables, fields, records, views, formulas, filters, sorting, grouping | Facade readback, live preview | `.xlsx` `.csv` `.tsv` | `.xlsx` `.csv` `.tsv` |
-| Board | Shapes, text, connectors, images, native charts, routing | Element and connector analysis, live preview | `mermaid` | `.png` `.jpeg` `.pptx` |
+| Sheet | Cells, formulas, styles, tables, charts, pivots, filters, validation, images, and more | Structured range inspection, recalculation, range/workbook screenshots, live preview | `.xlsx` `.csv` `.tsv` | `.xlsx` `.csv` `.tsv` |
+| Doc | Paragraphs, rich text, lists, tasks, tables, images, charts, headers, footers, pagination | Document readback, page screenshots, live preview | `.docx` | `.docx` |
+| Slide | Pages, text, shapes, images, tables, charts, SVG layouts, transitions | Structure inspection, text bounds/overflow/overlap lint, page/contact-sheet screenshots, live preview | `.pptx` | `.pptx` |
+| Base | Tables, fields, records, views, formulas, filters, sorting, grouping | Facade readback, workbench screenshot, live preview | — | `.xlsx` `.csv` `.tsv` |
+| Board | Shapes, text, connectors, images, native charts, routing | Element and connector analysis, overview/region/element screenshots, live preview | — | — |
 
 Every content type supports isolated worktree editing, review submission, reopening, merging, and discarding. Base and Board currently use exact Facade readback for structural verification. Board file export is not yet supported.
 
@@ -140,7 +140,7 @@ Load the matching Univer skill
    ↓
 Create / import / edit in a draft worktree
    ↓
-Readback + recalculation + Slide layout lint
+Readback + recalculation + layout lint + PNG screenshot review
    ↓
 Live preview and in-conversation review
    ↓
@@ -165,7 +165,9 @@ You do not need to call tools manually in normal use; DSH selects them from your
 | `univer_export` | Export a Sheet, Doc, Slide, or Base Unit |
 | `univer_lint` | Detect off-page, overflowing, and overlapping Slide text |
 | `univer_compile_svg` | Compile SVG into an explicit Slide page with real font metrics |
+| `univer_screenshot` | Render Sheet, Doc, Slide, Base, or Board PNGs and return them to an image-capable model |
 | `univer_api` | Search the exact Univer Facade API bundled with this plugin |
+| `univer_resources` | Find, read, and export bundled SVG icons, logos, emoji, and illustrations, and manage their download cache |
 
 The plugin also ships eight version-matched, lazily loaded skills: core orchestration, Sheet, Doc, Slide, Base, Board, Embed, and cross-Unit formulas.
 
@@ -180,8 +182,8 @@ The plugin also ships eight version-matched, lazily loaded skills: core orchestr
 ## Requirements and current limits
 
 - DeepSeek Harness and Node.js `>=22.19.0`.
-- Slide layout lint and real SVG text measurement require a local Chrome/Chromium executable. Set `UNIVER_RENDER_BROWSER` to use a specific browser path.
-- The plugin does not currently expose screenshots to the model. Structural and layout checks are not a substitute for pixel-level visual approval; you can still inspect the result in the live Viewer.
+- Slide layout lint, real SVG text measurement, and PNG screenshots require a local Chrome/Chromium executable. Set `UNIVER_RENDER_BROWSER` to use a specific browser path.
+- Screenshots run only when the current model route declares image input. PNGs are saved under an explicit output directory in the session workspace and returned as model-visible attachments. Structural readback, Slide lint, and screenshots prove different facts; the live Viewer remains available for human review.
 - Slide master pages, layout pages, and speaker notes are outside the current editing scope.
 - Board mind maps, tables, ink, advanced editing, and file export are not yet supported.
 
@@ -197,6 +199,12 @@ The defaults are designed for local use: the Gateway starts on the first file-st
 | `gatewayRequestTimeoutMs` | `3000` | State-read timeout |
 | `gatewayMutationTimeoutMs` | `60000` | Gateway mutation timeout |
 | `unitContentOperationTimeoutMs` | `120000` | Import, export, inspection, and execution timeout |
+| `screenshotOperationTimeoutMs` | `120000` | Overall timeout for one browser screenshot operation |
+| `screenshotMaxPages` | `30` | Maximum Doc or Slide pages rendered by one screenshot call |
+| `screenshotMaxPixels` | `16777216` | Maximum pixel count for each screenshot image |
+| `resourceCacheRoot` | `$DSH_HOME/cache/dsh-univer-office/resources` | Persistent downloaded-SVG cache; falls back to `~/.dsh` when `DSH_HOME` is unset |
+| `resourceDownloadTimeoutMs` | `15000` | Timeout for one SVG resource download |
+| `resourceOperationTimeoutMs` | `120000` | Overall timeout for one resource-library tool operation |
 | `tools` | `true` | Register the `univer_*` tools |
 | `skills` | `true` | Register the bundled Univer skills |
 
