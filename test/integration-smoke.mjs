@@ -164,6 +164,14 @@ try {
 
 	const found = await service.apiReference({ action: "find", queries: ["setValue"], unit: "sheet", limit: 3 });
 	if (found.result?.[0]?.matches?.[0]?.label !== "FRange.setValue") throw new Error(`API find failed: ${JSON.stringify(found)}`);
+	const boardFound = await service.apiReference({ action: "find", queries: ["insertImage"], unit: "board", limit: 3 });
+	if (boardFound.result?.[0]?.matches?.[0]?.label !== "FBoard.insertImage") {
+		throw new Error(`Board API find failed: ${JSON.stringify(boardFound)}`);
+	}
+	const baseFound = await service.apiReference({ action: "find", queries: ["getSchema"], unit: "base", limit: 3 });
+	if (baseFound.result?.[0]?.matches?.[0]?.label !== "FBase.getSchema") {
+		throw new Error(`Base API find failed: ${JSON.stringify(baseFound)}`);
+	}
 	const reference = await service.apiReference({ action: "show", queries: ["FRange.setValue"] });
 	if (reference.result?.[0]?.status !== "found") throw new Error(`API reference failed: ${JSON.stringify(reference)}`);
 

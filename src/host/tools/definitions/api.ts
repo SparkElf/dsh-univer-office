@@ -11,7 +11,7 @@ export function apiTool(ctx: Context) {
     parameters: {
       action: { type: 'string', required: true, enum: ['find', 'show'], description: 'Reference operation.' },
       queries: { type: 'array', required: true, items: { type: 'string' }, description: 'Search terms for find or exact symbols for show.' },
-      unit: { type: 'string', enum: ['sheet', 'doc', 'slide'], description: 'Optional find filter.' },
+      unit: { type: 'string', enum: ['sheet', 'doc', 'slide', 'base', 'board'], description: 'Optional find filter.' },
       limit: { type: 'integer', description: 'Optional positive per-query find limit.' },
     },
     output: apiOutput,

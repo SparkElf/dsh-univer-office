@@ -170,6 +170,26 @@ try {
       requestHeader() { return { config: { provider: 'host-smoke', model: 'vision' } } },
     },
   }
+  const boardApiResult = await toolContext.tools.execute({
+    signal: new AbortController().signal,
+    callId: CallId('host-smoke-board-api'),
+    name: 'univer_api',
+    arguments: { action: 'find', queries: ['insertImage'], unit: 'board', limit: 3 },
+    agent: owner,
+  })
+  if (boardApiResult.isError || !toolText(boardApiResult).includes('FBoard.insertImage')) {
+    throw new Error(`Board API reference must be accepted by the tool schema: ${JSON.stringify(boardApiResult)}`)
+  }
+  const baseApiResult = await toolContext.tools.execute({
+    signal: new AbortController().signal,
+    callId: CallId('host-smoke-base-api'),
+    name: 'univer_api',
+    arguments: { action: 'find', queries: ['getSchema'], unit: 'base', limit: 3 },
+    agent: owner,
+  })
+  if (baseApiResult.isError || !toolText(baseApiResult).includes('FBase.getSchema')) {
+    throw new Error(`Base API reference must be accepted by the tool schema: ${JSON.stringify(baseApiResult)}`)
+  }
   const resourcesResult = await toolContext.tools.execute({
     signal: new AbortController().signal,
     callId: CallId('host-smoke-resources'),

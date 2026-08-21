@@ -196,7 +196,7 @@ export type ApiReferenceRequest =
   | {
       readonly action: 'find'
       readonly queries: readonly string[]
-      readonly unit?: 'sheet' | 'doc' | 'slide'
+      readonly unit?: UniverUnitKind
       readonly limit?: number
     }
   | { readonly action: 'show'; readonly queries: readonly string[] }
