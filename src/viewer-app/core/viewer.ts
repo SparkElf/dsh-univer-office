@@ -28,6 +28,7 @@ import {
 } from "@univerjs-pro/collaboration";
 import { UniverCollaborationClientPlugin } from "@univerjs-pro/collaboration-client";
 import { UniverCollaborationEmbedPlugin } from "@univerjs-pro/collaboration-embed";
+import { UniverEditHistoryLoaderPlugin } from "@univerjs-pro/edit-history-loader";
 import {
   BrowserCollaborationSocketService,
   UniverCollaborationClientUIPlugin,
@@ -52,10 +53,17 @@ import {
   UNIT_TYPE_SLIDE,
   type UnitType,
 } from "@univer/collab-gateway-contract";
-import { blockLocalEditingCommands, resolveViewerReadOnlyEnforcement } from "./viewer-readonly";
+import {
+  blockLocalEditingCommands,
+  enforceSheetViewerReadOnlyPermissions,
+  resolveViewerReadOnlyEnforcement,
+} from "./viewer-readonly";
 import { createCollaborationSheetResourceRefDataProvider } from "./collaboration-sheet-resource-ref-data-provider";
+import { installHistoryShapeFormulaCompatibility } from "./history-shape-formula-compatibility";
 import { loadViewerLocale } from "./locales/generated/load";
 import { withReadOnlyPermissionLocale, type ReadOnlyLocaleCopy } from "./locales/read-only";
+
+installHistoryShapeFormulaCompatibility();
 
 export interface ViewerOptions {
   /** DOM id of the (already-empty) element UniverUIPlugin mounts into. */
@@ -186,6 +194,12 @@ export async function createViewer(opts: ViewerOptions): Promise<ViewerHandle> {
       univer.registerPlugin(UniverCollaborationClientUIPlugin, {
         ...(opts.unitType === UNIT_TYPE_BASE ? { enableDocumentCollaborationUI: false } : {}),
       });
+      if (opts.unitType === UNIT_TYPE_SHEET && opts.worktreeId === undefined) {
+        univer.registerPlugin(UniverEditHistoryLoaderPlugin, {
+          historyListServerUrl: urls.snapshotServerUrl.replace(/\/snapshot$/u, "/history"),
+          univerContainerId: opts.container,
+        });
+      }
     },
     registerAfterEmbedCore: () => {
       univer.registerPlugin(UniverCollaborationEmbedPlugin);
@@ -220,7 +234,10 @@ export async function createViewer(opts: ViewerOptions): Promise<ViewerHandle> {
 
   const readOnlyEnforcement = resolveViewerReadOnlyEnforcement(opts.unitType, editable);
   if (readOnlyEnforcement === "sheet-permission") {
-    makeReadonly(univer, opts.unitId);
+    enforceSheetViewerReadOnlyPermissions(
+      univer.__getInjector().get(IPermissionService),
+      opts.unitId,
+    );
   } else if (readOnlyEnforcement === "mutation-gate") {
     blockLocalEditingCommands(univer.__getInjector().get(ICommandService));
   }
