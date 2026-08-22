@@ -10,7 +10,7 @@
 //   pnpm run build         → all five applications
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
-import { builtinModules } from 'node:module'
+import { builtinModules, createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -19,6 +19,7 @@ import { build as buildVite } from 'vite'
 import { createEmbedUiMenuSchemaAliases, createPrismComponentEsmPlugin } from './viewer-vite.mjs'
 
 const target = process.argv[2] ?? 'all'
+const require = createRequire(import.meta.url)
 
 // Inline-bundle packaging, following the univer-cli model:
 //   - everything JS is inlined (packages: 'bundle')
@@ -118,7 +119,6 @@ if (target === 'all' || target === 'gateway') {
     ...builtinModules.map((id) => `node:${id}`),
     ...builtinModules,
     'libsql',
-    '@univerjs-pro/exchange-node',
     '@univerjs-pro/exchange-node-binding',
     '@univerjs-pro/engine-formula-rust-binding',
     '@univerjs-pro/cli-assets',
@@ -128,6 +128,10 @@ if (target === 'all' || target === 'gateway') {
     outfile: gatewayOut,
     bundle: true,
     packages: 'bundle',
+    // The ESM entry creates a require function from import.meta.url, which is
+    // not defined in the Gateway's CJS output. Bundle the package's equivalent
+    // CJS entry so its native binding continues to resolve from __filename.
+    alias: { '@univerjs-pro/exchange-node': require.resolve('@univerjs-pro/exchange-node') },
     external: gatewayExternal,
     platform: 'node',
     target: 'node22',

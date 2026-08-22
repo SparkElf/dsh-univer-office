@@ -17,9 +17,6 @@ importers:
       '@univerjs-pro/engine-formula-rust-binding':
         specifier: 1.0.0-insiders.20260819-8209aa8
         version: 1.0.0-insiders.20260819-8209aa8
-      '@univerjs-pro/exchange-node':
-        specifier: 1.0.0-insiders.20260821-c2f0ba5
-        version: 1.0.0-insiders.20260821-c2f0ba5(react@18.3.1)(rxjs@7.8.2)
       '@univerjs-pro/exchange-node-binding':
         specifier: 0.1.0
         version: 0.1.0
@@ -273,6 +270,9 @@ importers:
       '@univerjs-pro/exchange-client':
         specifier: 1.0.0-insiders.20260821-c2f0ba5
         version: 1.0.0-insiders.20260821-c2f0ba5(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rxjs@7.8.2)
+      '@univerjs-pro/exchange-node':
+        specifier: 1.0.0-insiders.20260821-c2f0ba5
+        version: 1.0.0-insiders.20260821-c2f0ba5(react@18.3.1)(rxjs@7.8.2)
       '@univerjs-pro/ink':
         specifier: 1.0.0-insiders.20260821-c2f0ba5
         version: 1.0.0-insiders.20260821-c2f0ba5(react@18.3.1)(rxjs@7.8.2)

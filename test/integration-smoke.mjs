@@ -1,4 +1,4 @@
-import { mkdtemp, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -8,6 +8,17 @@ import { pathToFileURL } from "node:url";
 const { Context } = await import("@deepseek-ai/cordis");
 const packageRoot = process.env.UNIVER_PLUGIN_ROOT;
 if (packageRoot !== undefined && !isAbsolute(packageRoot)) throw new Error("UNIVER_PLUGIN_ROOT must be absolute");
+const manifestPath = packageRoot === undefined ? new URL("../package.json", import.meta.url) : join(packageRoot, "package.json");
+const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+if (manifest.dependencies?.["@univerjs-pro/exchange-node"] !== undefined) {
+	throw new Error("published package must bundle @univerjs-pro/exchange-node instead of installing it at runtime");
+}
+const gatewayArtifact = packageRoot === undefined
+	? new URL("../artifacts/gateway.cjs", import.meta.url)
+	: join(packageRoot, "artifacts", "gateway.cjs");
+if ((await readFile(gatewayArtifact, "utf8")).includes('require("@univerjs-pro/exchange-node")')) {
+	throw new Error("bundled Gateway must not require @univerjs-pro/exchange-node at runtime");
+}
 const entry = packageRoot === undefined
 	? new URL("../lib/index.js", import.meta.url).href
 	: pathToFileURL(join(packageRoot, "lib", "index.js")).href;
