@@ -7,12 +7,26 @@ import { apiOutput } from '../presentation.ts'
 export function apiTool(ctx: Context) {
   return defineTool({
     name: 'univer_api',
-    description: 'Search or show the exact Univer Facade API bundled with this plugin. Use find by intent, then show exact symbols before writing unfamiliar Facade code.',
+    description: 'Look up the version-matched Univer Facade API bundled with this plugin. Use find with API-name keywords to discover ranked symbol labels, then use show with those exact labels to retrieve their reference details. Find matches indexed names, signatures, and summaries; it does not interpret task intent.',
     parameters: {
-      action: { type: 'string', required: true, enum: ['find', 'show'], description: 'Reference operation.' },
-      queries: { type: 'array', required: true, items: { type: 'string' }, description: 'Search terms for find or exact symbols for show.' },
-      unit: { type: 'string', enum: ['sheet', 'doc', 'slide', 'base', 'board'], description: 'Optional find filter.' },
-      limit: { type: 'integer', description: 'Optional positive per-query find limit.' },
+      action: {
+        type: 'string',
+        required: true,
+        enum: ['find', 'show'],
+        description: 'Use find for ranked keyword matches or show for exact symbol reference details.',
+      },
+      queries: {
+        type: 'array',
+        required: true,
+        items: { type: 'string' },
+        description: 'For find, one or more API-name keywords searched independently, such as setValue or FRange; do not pass a natural-language task description. For show, one or more exact class, member, type, field, or enum-value labels, such as FRange.setValue.',
+      },
+      unit: {
+        type: 'string',
+        enum: ['sheet', 'doc', 'slide', 'base', 'board'],
+        description: 'Optional find-only Unit filter; shared APIs remain included.',
+      },
+      limit: { type: 'integer', description: 'Optional positive maximum number of matches returned for each find query.' },
     },
     output: apiOutput,
     execute(args) {

@@ -39,7 +39,6 @@ for (const invalid of [{ screenshotMaxPages: 0 }, { resourceCacheRoot: 'relative
     if (!(error instanceof Error) || !error.message.includes(key)) throw error
   }
 }
-
 const WORKSPACE = await mkdtemp(join(tmpdir(), 'dsh-univer-host-smoke-'))
 const FILE = join(WORKSPACE, 'smoke.univer')
 const CODE_FILE = join(WORKSPACE, 'facade-program.js')
@@ -168,6 +167,10 @@ try {
     gatewayRequestTimeoutMs: 50,
     skills: false,
   })
+  const apiDefinition = toolContext.tools.get('univer_api')
+  if (!apiDefinition?.description.includes('API-name keywords') || !apiDefinition.description.includes('does not interpret task intent')) {
+    throw new Error(`univer_api must describe find as keyword matching rather than intent search: ${apiDefinition?.description ?? 'missing'}`)
+  }
   const owner = {
     ctx: toolContext,
     options: { provider: 'host-smoke', model: 'vision' },

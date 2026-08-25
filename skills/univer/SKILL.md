@@ -42,7 +42,7 @@ Only `colorEditable: true` resources may follow an authored color. Fixed logos, 
 2. Create or select one draft worktree. Continue an existing worktree only after confirming its state.
 3. Create a Unit with `univer_unit`, or import one with `univer_import`.
 4. Load the matching Unit skill before writing Facade code.
-5. Use `univer_api` with `action: "find"` when the symbol is unknown and `action: "show"` for exact symbols. Never guess an unfamiliar signature, parameter type, or enum.
+5. Use `univer_api` with `action: "find"` and API-name keywords when the exact symbol is unknown; `find` ranks indexed keyword matches and does not interpret task intent. Copy a returned label into `action: "show"` to retrieve that exact class, member, type, field, or enum value. Never guess an unfamiliar signature, parameter type, or enum.
 6. Mutate through `univer_execute`, or through `univer_compile_svg` for generated Slide page content.
 7. Read the changed scope with `univer_inspect`; use a fresh read-only `univer_execute` when inspection omits a required model field.
 8. For every changed Slide page, call `univer_lint` and resolve or explicitly justify each finding.
@@ -79,7 +79,7 @@ Never reopen or reuse a merged or discarded worktree; create a new worktree inst
 | Verify | `univer_inspect` | Read structured Unit content from trunk or one worktree. |
 | Verify | `univer_lint` | Check Slide text off-page, container escape, and text overlap. |
 | Verify | `univer_screenshot` | Render Sheet, Doc, Slide, Base, or Board PNG evidence and return it to an image-capable model. |
-| Reference | `univer_api` | Find or show exact version-matched Facade symbols. |
+| Reference | `univer_api` | Find version-matched Facade symbols by API keyword, then show exact returned labels. |
 | Reference | `univer_resources` | List/find/read/export bundled SVG resources or clear their download cache. |
 | Deliver | `univer_export` | Export Sheet/Base to xlsx/csv/tsv, Doc to docx, or Slide to pptx. |
 

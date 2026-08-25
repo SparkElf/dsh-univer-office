@@ -157,7 +157,7 @@ DSH selects these tools automatically; you normally do not need to call them man
 | `univer_lint` | Find off-page, overflowing, and overlapping Slide text |
 | `univer_compile_svg` | Add an SVG layout to a Slide with measured text |
 | `univer_screenshot` | Render supported content as PNG images for review |
-| `univer_api` | Search the Univer API included with this plugin |
+| `univer_api` | Find bundled Univer API symbols by keyword and show exact references |
 | `univer_resources` | Find and use bundled icons, logos, emoji, and illustrations |
 
 ## Preview and review experience

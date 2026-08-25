@@ -155,7 +155,7 @@ DSH 会自动选择这些工具，日常使用不需要手动调用。
 | `univer_lint` | 检查 Slide 文字越界、溢出和重叠 |
 | `univer_compile_svg` | 将 SVG 布局按文字度量添加到 Slide |
 | `univer_screenshot` | 把支持的内容渲染为 PNG 图片供审阅 |
-| `univer_api` | 检索插件包含的 Univer API |
+| `univer_api` | 按关键词查找插件内置的 Univer API 符号并查看精确引用 |
 | `univer_resources` | 查找和使用内置图标、Logo、Emoji 与插画 |
 
 ## 预览与审阅体验
