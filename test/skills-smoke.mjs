@@ -43,6 +43,8 @@ if (
 	!core.content.includes('await import("node:fs/promises")') ||
 	!core.content.includes("codeFile") ||
 	!core.content.includes("Do not wait for the user to name a tool") ||
+	!core.content.includes("the next lookup must be `show`") ||
+	!core.content.includes("Never `find` members of a known class") ||
 	!core.content.includes("Error [CODE]: message") ||
 	core.content.startsWith("---")
 ) {
@@ -60,6 +62,16 @@ if (
 	!slide.content.includes("A new Slide Unit already contains one empty page")
 ) {
 	throw new Error("bundled Slide skill is missing proactive generation guidance");
+}
+
+const sheet = await ctx.skills.get("univer-sheet");
+if (
+	sheet === undefined ||
+	!sheet.description.includes("Sheet Facade API lookup task") ||
+	!sheet.content.includes("the next lookup must be `show`") ||
+	!sheet.content.includes("Never `find` members of a known class")
+) {
+	throw new Error("bundled Sheet skill is missing efficient API lookup guidance");
 }
 
 for (const unit of ["univer-base", "univer-board", "univer-doc", "univer-sheet", "univer-slide"]) {

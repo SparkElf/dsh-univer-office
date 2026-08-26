@@ -36,13 +36,21 @@ When a Unit needs icons, logos, emoji, or illustrations, use the bundled resourc
 
 Only `colorEditable: true` resources may follow an authored color. Fixed logos, color emoji, and illustrations keep their intrinsic colors. Reuse the exported file; do not copy partial path data from it.
 
+## Facade API lookup
+
+- Unknown class/API: `find` one short API-name query with `limit: 10` or less. It is case-insensitive; queries return separate results, never AND or intent. Do not batch synonyms.
+- Known class: `show` the class to inspect its APIs. Never `find` members of a known class.
+- Known type or exact `Class.member` label: `show` that label.
+
+After any useful `find`, the next lookup must be `show`; repeat `find` only after zero useful matches. Stop when `show` contains the required signature, call chain, or example. Do not chase members or implementation-only return types already documented there, or inspect SDK files when `show` can answer.
+
 ## Required workflow
 
 1. Call `univer_status` to discover Unit IDs and worktree states.
 2. Create or select one draft worktree. Continue an existing worktree only after confirming its state.
 3. Create a Unit with `univer_unit`, or import one with `univer_import`.
 4. Load the matching Unit skill before writing Facade code.
-5. Use `univer_api` with `action: "find"` and API-name keywords when the exact symbol is unknown; `find` ranks indexed keyword matches and does not interpret task intent. Copy a returned label into `action: "show"` to retrieve that exact class, member, type, field, or enum value. Never guess an unfamiliar signature, parameter type, or enum.
+5. Resolve unfamiliar Facade usage with `univer_api` following the lookup rules above. Never guess an unfamiliar signature, parameter type, or enum.
 6. Mutate through `univer_execute`, or through `univer_compile_svg` for generated Slide page content.
 7. Read the changed scope with `univer_inspect`; use a fresh read-only `univer_execute` when inspection omits a required model field.
 8. For every changed Slide page, call `univer_lint` and resolve or explicitly justify each finding.
@@ -79,7 +87,7 @@ Never reopen or reuse a merged or discarded worktree; create a new worktree inst
 | Verify | `univer_inspect` | Read structured Unit content from trunk or one worktree. |
 | Verify | `univer_lint` | Check Slide text off-page, container escape, and text overlap. |
 | Verify | `univer_screenshot` | Render Sheet, Doc, Slide, Base, or Board PNG evidence and return it to an image-capable model. |
-| Reference | `univer_api` | Find version-matched Facade symbols by API keyword, then show exact returned labels. |
+| Reference | `univer_api` | Find an unknown name, or show a known class, API, or type. |
 | Reference | `univer_resources` | List/find/read/export bundled SVG resources or clear their download cache. |
 | Deliver | `univer_export` | Export Sheet/Base to xlsx/csv/tsv, Doc to docx, or Slide to pptx. |
 

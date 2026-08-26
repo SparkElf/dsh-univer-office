@@ -168,8 +168,8 @@ try {
     skills: false,
   })
   const apiDefinition = toolContext.tools.get('univer_api')
-  if (!apiDefinition?.description.includes('API-name keywords') || !apiDefinition.description.includes('does not interpret task intent')) {
-    throw new Error(`univer_api must describe find as keyword matching rather than intent search: ${apiDefinition?.description ?? 'missing'}`)
+  if (!apiDefinition?.description.includes('use one short API-name query, not synonyms') || !apiDefinition.description.includes('separate results rather than AND or intent search') || !apiDefinition.description.includes('the next lookup must be SHOW') || !apiDefinition.description.includes('Never find members of a known class')) {
+    throw new Error(`univer_api must distinguish unknown-name find from known-name show: ${apiDefinition?.description ?? 'missing'}`)
   }
   const owner = {
     ctx: toolContext,

@@ -7,26 +7,26 @@ import { apiOutput } from '../presentation.ts'
 export function apiTool(ctx: Context) {
   return defineTool({
     name: 'univer_api',
-    description: 'Look up the version-matched Univer Facade API bundled with this plugin. Use find with API-name keywords to discover ranked symbol labels, then use show with those exact labels to retrieve their reference details. Find matches indexed names, signatures, and summaries; it does not interpret task intent.',
+    description: 'Bundled Univer Facade API reference. FIND only when no class or exact Class.member/type label is known; use one short API-name query, not synonyms. Find is case-insensitive, and queries produce separate results rather than AND or intent search. After any useful find result, the next lookup must be SHOW; repeat find only after zero useful matches. SHOW a known class to inspect its APIs, or show a known type/exact label. Never find members of a known class. Use shown signatures and examples directly, and stop when they contain the required call chain.',
     parameters: {
       action: {
         type: 'string',
         required: true,
         enum: ['find', 'show'],
-        description: 'Use find for ranked keyword matches or show for exact symbol reference details.',
+        description: 'find discovers an unknown label. show inspects a known class, type, or exact Class.member label. If a class is known, choose show.',
       },
       queries: {
         type: 'array',
         required: true,
         items: { type: 'string' },
-        description: 'For find, one or more API-name keywords searched independently, such as setValue or FRange; do not pass a natural-language task description. For show, one or more exact class, member, type, field, or enum-value labels, such as FRange.setValue.',
+        description: 'find: one short API-name query per unknown concept, such as conditionalFormat; do not batch synonyms. Items run independently, not as AND. show: known class, type, or exact Class.member labels such as FRange or FRange.setValue.',
       },
       unit: {
         type: 'string',
         enum: ['sheet', 'doc', 'slide', 'base', 'board'],
         description: 'Optional find-only Unit filter; shared APIs remain included.',
       },
-      limit: { type: 'integer', description: 'Optional positive maximum number of matches returned for each find query.' },
+      limit: { type: 'integer', description: 'Find-only maximum matches per query. Prefer 10 or fewer.' },
     },
     output: apiOutput,
     execute(args) {

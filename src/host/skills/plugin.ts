@@ -17,7 +17,7 @@ const DEFINITIONS = [
   },
   {
     name: 'univer-sheet',
-    description: 'Read, write, format, calculate, and verify Univer Sheet Units through DSH tools and the Lite Interface. Use proactively for spreadsheet values, formulas, ranges, tables, charts, images, formatting, validation, filters, pivots, rich text, xlsx/csv/tsv import or export, and any Sheet Unit task.',
+    description: 'Read, write, format, calculate, and verify Univer Sheet Units through DSH tools and the Lite Interface. Use proactively for spreadsheet values, formulas, ranges, tables, charts, images, formatting, validation, filters, pivots, rich text, xlsx/csv/tsv import or export, and any Sheet Unit or Sheet Facade API lookup task.',
   },
   {
     name: 'univer-doc',

@@ -1,13 +1,15 @@
 ---
 name: univer-sheet
-description: Read, write, format, calculate, and verify Univer Sheet Units through DSH tools and the Lite Interface. Use proactively for spreadsheet values, formulas, ranges, tables, charts, images, formatting, validation, filters, pivots, rich text, xlsx/csv/tsv import or export, and any Sheet Unit task.
+description: Read, write, format, calculate, and verify Univer Sheet Units through DSH tools and the Lite Interface. Use proactively for spreadsheet values, formulas, ranges, tables, charts, images, formatting, validation, filters, pivots, rich text, xlsx/csv/tsv import or export, and any Sheet Unit or Sheet Facade API lookup task.
 ---
 
 # Univer Sheet Units
 
 Load `univer` first. `univer_execute` provides `univerAPI`, `api` (the same object), and `workbook` (the `FWorkbook` selected by `unitId`). Do not redeclare them. Execution is ESM and has no `require`.
 
-Obtain a worksheet with `workbook.getActiveSheet()` or `workbook.getSheetByName("…")`. Use `getSheetName()`; `FWorksheet` has no `getName()`. Resolve unfamiliar APIs with `univer_api` before writing code.
+Obtain a worksheet with `workbook.getActiveSheet()` or `workbook.getSheetByName("…")`. Use `getSheetName()`; `FWorksheet` has no `getName()`.
+
+With `univer_api`, `find` one short API-name query only when no class or exact label is known; matching is case-insensitive, queries are separate rather than AND/intent, and synonyms must not be batched. After any useful result, the next lookup must be `show`; repeat `find` only after zero useful matches. `show` a known class to inspect its APIs, or a known type/exact `Class.member` label. Never `find` members of a known class. Stop when `show` contains the required call chain or example.
 
 ## Cell model: v, t, f, and number formats
 
