@@ -119,10 +119,10 @@ dsh web
 
 DSH 启动成功后，在已有的 DeepSeek Harness 浏览器页面按 **Cmd+R / Ctrl+R** 刷新。
 
-### 2. 直接描述结果
+### 2. 直接描述需求
 
 ```text
-创建 reports/q2-review.univer。读取 data/q2-sales.xlsx，生成一个带汇总指标、月度趋势和地区排名的管理看板。
+帮我生成一个月度支出表格，包含日期、分类、金额和合计，并填入几条示例数据。
 ```
 
 ### 3. 在会话中审阅

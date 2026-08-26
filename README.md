@@ -121,10 +121,10 @@ dsh web
 
 After DSH starts successfully, refresh the existing DeepSeek Harness browser page with **Cmd+R / Ctrl+R**.
 
-### 2. Describe the result you want
+### 2. Describe what you need
 
 ```text
-Create reports/q2-review.univer. Read data/q2-sales.xlsx and build a management dashboard with summary metrics, monthly trends, and regional rankings.
+Create a monthly expense spreadsheet with dates, categories, amounts, a total, and a few rows of sample data.
 ```
 
 ### 3. Review it in the conversation
