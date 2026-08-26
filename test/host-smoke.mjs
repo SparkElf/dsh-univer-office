@@ -168,7 +168,7 @@ try {
     skills: false,
   })
   const apiDefinition = toolContext.tools.get('univer_api')
-  if (!apiDefinition?.description.includes('use one short API-name query, not synonyms') || !apiDefinition.description.includes('separate results rather than AND or intent search') || !apiDefinition.description.includes('the next lookup must be SHOW') || !apiDefinition.description.includes('Never find members of a known class')) {
+  if (!apiDefinition?.description.includes('Use find when no relevant class or API label is known') || !apiDefinition.description.includes('show the class itself') || !apiDefinition.description.includes('Each query runs independently') || !apiDefinition.description.includes('find does not interpret intent')) {
     throw new Error(`univer_api must distinguish unknown-name find from known-name show: ${apiDefinition?.description ?? 'missing'}`)
   }
   const owner = {

@@ -38,11 +38,11 @@ Only `colorEditable: true` resources may follow an authored color. Fixed logos, 
 
 ## Facade API lookup
 
-- Unknown class/API: `find` one short API-name query with `limit: 10` or less. It is case-insensitive; queries return separate results, never AND or intent. Do not batch synonyms.
-- Known class: `show` the class to inspect its APIs. Never `find` members of a known class.
-- Known type or exact `Class.member` label: `show` that label.
+- No relevant class or API label is known: use `find` with API-name keywords or identifier fragments.
+- A class is known: use `show` on the class to inspect its APIs.
+- A type or exact `Class.member` API label is known: use `show` on that label for signatures, documentation, and examples.
 
-After any useful `find`, the next lookup must be `show`; repeat `find` only after zero useful matches. Stop when `show` contains the required signature, call chain, or example. Do not chase members or implementation-only return types already documented there, or inspect SDK files when `show` can answer.
+`find` is case-insensitive. Each query is searched independently and returns its own matches; queries are not combined as AND, and `find` does not interpret intent. Pass a useful returned label to `show` instead of searching that label again.
 
 ## Required workflow
 

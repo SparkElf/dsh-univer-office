@@ -7,19 +7,19 @@ import { apiOutput } from '../presentation.ts'
 export function apiTool(ctx: Context) {
   return defineTool({
     name: 'univer_api',
-    description: 'Bundled Univer Facade API reference. FIND only when no class or exact Class.member/type label is known; use one short API-name query, not synonyms. Find is case-insensitive, and queries produce separate results rather than AND or intent search. After any useful find result, the next lookup must be SHOW; repeat find only after zero useful matches. SHOW a known class to inspect its APIs, or show a known type/exact label. Never find members of a known class. Use shown signatures and examples directly, and stop when they contain the required call chain.',
+    description: 'Look up the bundled, version-matched Univer Facade API. Use find when no relevant class or API label is known. Use show for a known class, type, or exact Class.member API label; to inspect APIs on a known class, show the class itself. Find is case-insensitive. Each query runs independently and returns its own matches: queries are never combined as AND, and find does not interpret intent.',
     parameters: {
       action: {
         type: 'string',
         required: true,
         enum: ['find', 'show'],
-        description: 'find discovers an unknown label. show inspects a known class, type, or exact Class.member label. If a class is known, choose show.',
+        description: 'find discovers unknown class or API labels; show documents a known class, type, or exact Class.member label. Show a known class to inspect its APIs.',
       },
       queries: {
         type: 'array',
         required: true,
         items: { type: 'string' },
-        description: 'find: one short API-name query per unknown concept, such as conditionalFormat; do not batch synonyms. Items run independently, not as AND. show: known class, type, or exact Class.member labels such as FRange or FRange.setValue.',
+        description: 'For find, API-name keywords or identifier fragments such as conditionalFormat. For show, known class, type, or exact Class.member labels such as FRange or FRange.setValue. Find queries are case-insensitive and independent, not AND terms.',
       },
       unit: {
         type: 'string',
