@@ -1,7 +1,9 @@
 import * as React from 'react'
+import { createPortal } from 'react-dom'
+import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  opensFloatingWindow, turnFilesOfSession, type UniverTurnOperation,
+  opensFloatingWindow, turnFilesOfTimeline, type UniverTurnOperation,
 } from '../conversation/univer-turn-definition.ts'
 import { useUniverStates } from '../hooks/use-univer-state.ts'
 import type { ViewerLocaleInjected } from '../viewer-locale.ts'
@@ -9,21 +11,32 @@ import { WorktreeWindow } from './worktree-window.tsx'
 
 export type UniverDockProps = PropsRuntime<'conversation.input.dock'> & PropsLocale<'univer'> & ViewerLocaleInjected
 
+interface SplitSnapshotUniverDockProps extends UniverDockProps {
+  readonly useChat?: <Selected>(selector: (snapshot: { readonly timeline: ConversationTimelineSnapshot }) => Selected) => Selected
+}
+
 interface OpenWindow {
   readonly file: string
   readonly worktreeId: string | null
   readonly preferredUnitId: string | null
 }
 
-/** Own deliberate live-window intent across Turns and clear it only on dismiss or terminal state. */
-export function UniverDock(props: UniverDockProps): React.ReactElement {
-  return <UniverSessionDock key={props.sessionId} {...props} />
+/** DSH 0.1.1-rc.2 adapter: Chat remains nested in the input owner's Session snapshot. */
+export function CombinedSnapshotUniverDock(props: UniverDockProps): React.ReactElement {
+  return <UniverSessionDock key={props.sessionId} {...props} timeline={props.session?.chat.timeline} />
+}
+
+/** DSH 0.1.2-alpha.1 adapter: Chat owns its independently selected snapshot. */
+export function SplitSnapshotUniverDock(props: SplitSnapshotUniverDockProps): React.ReactElement {
+  if (props.useChat === undefined) throw new Error('dsh-univer-office: split DSH Client supplied no Chat selector')
+  const timeline = props.useChat((snapshot) => snapshot.timeline)
+  return <UniverSessionDock key={props.sessionId} {...props} timeline={timeline} />
 }
 
 /** A keyed owner prevents open-window intent from crossing DSH session boundaries. */
-function UniverSessionDock(props: UniverDockProps): React.ReactElement {
+function UniverSessionDock(props: UniverDockProps & { readonly timeline: ConversationTimelineSnapshot | undefined }): React.ReactElement {
   const cwd = props.useSessions((state) => state.byId[props.sessionId]?.cwd)
-  const turnFiles = React.useMemo(() => turnFilesOfSession(props.session, cwd), [props.session, cwd])
+  const turnFiles = React.useMemo(() => turnFilesOfTimeline(props.timeline, cwd), [props.timeline, cwd])
   const [open, setOpen] = React.useState<Record<string, OpenWindow>>({})
   const seen = React.useRef(new Set<string>())
   const running = props.session?.running === true
@@ -68,7 +81,10 @@ function UniverSessionDock(props: UniverDockProps): React.ReactElement {
 
   if (!running) return <></>
   const windows = Object.values(open)
-  return <>{windows.length === 0 ? null : <div className="uvf_root">{windows.map((target, stackIndex) => <WorktreeWindow
+  if (windows.length === 0) return <></>
+  // DSH 0.1.2-alpha.1 renders the input dock inside a translucent, non-draggable
+  // container. Portaling avoids inheriting that container's opacity and hit-testing.
+  return createPortal(<div className="uvf_root">{windows.map((target, stackIndex) => <WorktreeWindow
     key={target.file}
     file={target.file}
     state={states[target.file]}
@@ -82,7 +98,7 @@ function UniverSessionDock(props: UniverDockProps): React.ReactElement {
       delete next[target.file]
       return next
     })}
-  />)}</div>}</>
+  />)}</div>, document.body)
 }
 
 function openWindowOf(operation: UniverTurnOperation, file: string): OpenWindow | null {
