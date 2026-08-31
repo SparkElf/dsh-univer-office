@@ -1,7 +1,7 @@
-// Product telemetry smoke: the real lifecycle entry CLI and the real host
+// Product telemetry smoke: the real uninstall entry CLI and the real host
 // telemetry pass against a local proxy double, with temporary DSH_HOME state
 // and a dynamic port. Asserts final state-file content, wire payload shape,
-// once-only semantics, and that telemetry can never fail install or startup.
+// once-only semantics, and that telemetry can never fail uninstall or startup.
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -22,8 +22,8 @@ const manifest = JSON.parse(await readFile(new URL('../package.json', import.met
 if (manifest.files.includes('scripts/telemetry-entry.mjs') !== true) {
   throw new Error('published package must ship scripts/telemetry-entry.mjs')
 }
-if (manifest.scripts.postinstall !== 'node scripts/telemetry-entry.mjs postinstall') {
-  throw new Error('postinstall must launch only the package-owned telemetry entry')
+if (Object.hasOwn(manifest.scripts, 'postinstall')) {
+  throw new Error('published package must not declare a postinstall script')
 }
 if (manifest.scripts.uninstall !== 'node scripts/telemetry-entry.mjs uninstall') {
   throw new Error('uninstall must launch only the package-owned telemetry entry')
@@ -47,7 +47,7 @@ if (buildInfo.version !== manifest.version) {
   throw new Error(`build-info version must track package.json: ${buildInfo.version}`)
 }
 if (!existsSync(new URL('../lib/telemetry-entry.js', import.meta.url))) {
-  throw new Error('build must emit lib/telemetry-entry.js for lifecycle hooks')
+  throw new Error('build must emit lib/telemetry-entry.js for the uninstall hook')
 }
 
 const requests = []
@@ -89,45 +89,27 @@ const runProcess = (file, args, env) =>
 try {
   const entryEnvironment = { ...process.env, DSH_HOME: home, UNIVER_TELEMETRY_ENDPOINT: endpoint }
 
-  // The postinstall hook reports once per install identity.
+  // The uninstall hook is deliberately never deduplicated.
   const statePath = resolveTelemetryStatePath({ env: entryEnvironment })
-  const install = await runProcess(
-    entryPath,
-    ['capture', 'dsh_plugin_postinstall'],
-    entryEnvironment
-  )
-  if (install.status !== 0) throw new Error(`postinstall entry must exit 0: ${install.status}`)
-  if (requests.length !== 1)
-    throw new Error(`postinstall must send exactly one event: ${requests.length}`)
-  if (requests[0].body.event !== 'dsh_plugin_postinstall')
-    throw new Error('postinstall sent the wrong event')
-  if (requests[0].body.properties.event_source !== 'postinstall')
+  await runProcess(entryPath, ['capture', 'dsh_plugin_uninstall_hook'], entryEnvironment)
+  await runProcess(entryPath, ['capture', 'dsh_plugin_uninstall_hook'], entryEnvironment)
+  if (requests.length !== 2)
+    throw new Error(`uninstall hook must not deduplicate: ${requests.length}`)
+  if (requests[1].body.event !== 'dsh_plugin_uninstall_hook')
+    throw new Error('uninstall entry sent the wrong event')
+  if (requests[1].body.properties.event_source !== 'uninstall-hook')
     throw new Error('wrong event source')
   assertPayloadShape(requests[0].body)
-  const state = parseTelemetryState(await readFile(statePath, 'utf8'))
-  if (state.postinstallAttemptedAt === undefined)
-    throw new Error('state must record the postinstall attempt')
-
-  await runProcess(entryPath, ['capture', 'dsh_plugin_postinstall'], entryEnvironment)
-  if (requests.length !== 1)
-    throw new Error('postinstall must not be sent twice for one install identity')
-
-  // The uninstall hook is deliberately never deduplicated.
-  await runProcess(entryPath, ['capture', 'dsh_plugin_uninstall_hook'], entryEnvironment)
-  await runProcess(entryPath, ['capture', 'dsh_plugin_uninstall_hook'], entryEnvironment)
-  if (requests.length !== 3)
-    throw new Error(`uninstall hook must not deduplicate: ${requests.length}`)
-  if (requests[2].body.properties.event_source !== 'uninstall-hook')
-    throw new Error('wrong event source')
+  parseTelemetryState(await readFile(statePath, 'utf8'))
 
   // DO_NOT_TRACK suppresses everything, including state creation.
   const trackedHome = `${home}-dnt`
-  await runProcess(entryPath, ['capture', 'dsh_plugin_postinstall'], {
+  await runProcess(entryPath, ['capture', 'dsh_plugin_uninstall_hook'], {
     ...entryEnvironment,
     DSH_HOME: trackedHome,
     DO_NOT_TRACK: '1'
   })
-  if (requests.length !== 3) throw new Error('DO_NOT_TRACK must suppress sends')
+  if (requests.length !== 2) throw new Error('DO_NOT_TRACK must suppress sends')
   if (existsSync(resolveTelemetryStatePath({ env: { DSH_HOME: trackedHome } }))) {
     throw new Error('DO_NOT_TRACK must not create telemetry state')
   }
@@ -135,12 +117,12 @@ try {
   // An explicitly empty endpoint override stays fully inert even when the
   // build pins the live proxy (release CI builds and incident kill-switch).
   const inertHome = `${home}-inert`
-  await runProcess(entryPath, ['capture', 'dsh_plugin_postinstall'], {
+  await runProcess(entryPath, ['capture', 'dsh_plugin_uninstall_hook'], {
     ...process.env,
     DSH_HOME: inertHome,
     UNIVER_TELEMETRY_ENDPOINT: ''
   })
-  if (requests.length !== 3) throw new Error('empty endpoint override must suppress sends')
+  if (requests.length !== 2) throw new Error('empty endpoint override must suppress sends')
   if (existsSync(resolveTelemetryStatePath({ env: { DSH_HOME: inertHome } }))) {
     throw new Error('empty endpoint override must not create telemetry state')
   }
@@ -153,11 +135,11 @@ try {
     disabledPath,
     `${JSON.stringify({ anonymousInstallId: crypto.randomUUID(), disabled: true, version: 1 }, null, 2)}\n`
   )
-  await runProcess(entryPath, ['capture', 'dsh_plugin_postinstall'], {
+  await runProcess(entryPath, ['capture', 'dsh_plugin_uninstall_hook'], {
     ...entryEnvironment,
     DSH_HOME: disabledHome
   })
-  if (requests.length !== 3) throw new Error('disabled state must suppress hook sends')
+  if (requests.length !== 2) throw new Error('disabled state must suppress hook sends')
 
   const reEnabled = []
   await runHostTelemetry({
@@ -217,8 +199,8 @@ try {
   const blocked = await captureTelemetry({
     buildInfo: { telemetryEndpoint: endpoint, commit: 'c0ffee', version: '9.9.9' },
     endpoint,
-    event: 'dsh_plugin_postinstall',
-    source: 'postinstall',
+    event: 'dsh_plugin_activated',
+    source: 'host-activate',
     stateIo: {
       mkdir: async () => {
         throw new Error('state directory denied')
@@ -258,20 +240,20 @@ try {
     throw new Error(`concurrent starts must send at least the two events: ${raceSent.length}`)
   parseTelemetryState(await readFile(raceStatePath, 'utf8'))
 
-  // The package.json lifecycle script exits immediately and delivers detached.
+  // The package.json uninstall script exits immediately and delivers detached.
   const shimHome = `${home}-shim`
   const shimRequests = requests.length
   const shim = await runProcess(
     new URL('../scripts/telemetry-entry.mjs', import.meta.url).pathname,
-    ['postinstall'],
+    ['uninstall'],
     {
       ...entryEnvironment,
       DSH_HOME: shimHome
     }
   )
   if (shim.status !== 0) throw new Error('lifecycle script must always exit 0')
-  await waitFor(() => requests.length > shimRequests, 'detached postinstall child never delivered')
-  if (requests[requests.length - 1].body.event !== 'dsh_plugin_postinstall')
+  await waitFor(() => requests.length > shimRequests, 'detached uninstall child never delivered')
+  if (requests[requests.length - 1].body.event !== 'dsh_plugin_uninstall_hook')
     throw new Error('shim sent the wrong event')
 
   console.log('telemetry smoke passed')

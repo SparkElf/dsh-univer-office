@@ -82,7 +82,7 @@ if (target === 'all' || target === 'lib') {
   if (clientCode === undefined) throw new Error('client build produced no JavaScript')
   await writeFile('lib/client.js', `window.__ModuleLoader__.load({\n  id: "dsh-univer-office",\n  factory: (require) => {\n    var module = { exports: {} };\n    var exports = module.exports;\n${indent(clientCode, 4)}\n    return module.exports;\n  }\n});\n`)
 
-  // Product telemetry entry for package lifecycle hooks (postinstall/uninstall).
+  // Product telemetry entry for the package uninstall hook.
   await build({
     entryPoints: ['src/host/telemetry/entry.ts'],
     outfile: 'lib/telemetry-entry.js',
@@ -96,7 +96,7 @@ if (target === 'all' || target === 'lib') {
 
   // Telemetry endpoint: only the release workflow pins the live proxy address
   // (RELEASE_TELEMETRY_ENDPOINT); local builds stay fully inert because an
-  // empty endpoint disables every send, including the lifecycle hooks.
+  // empty endpoint disables every send, including the uninstall hook.
   const telemetryEndpoint = process.env.RELEASE_TELEMETRY_ENDPOINT ?? ''
   const manifest = JSON.parse(await readFile('package.json', 'utf8'))
   let commit = ''

@@ -204,7 +204,7 @@ The defaults are designed for local use: the service starts at port `9080`. If t
 
 ## Telemetry
 
-Sends anonymous usage stats (never file contents or paths). Disable with `DO_NOT_TRACK=1` or `telemetry: false`.
+Sends anonymous usage stats after the plugin activates (never file contents or paths). The published package declares no `postinstall` script. Disable telemetry with `DO_NOT_TRACK=1` or `telemetry: false`.
 
 ## Uninstall
 

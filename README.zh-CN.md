@@ -204,7 +204,7 @@ DSH 会自动选择这些工具，日常使用不需要手动调用。
 
 ## 遥测
 
-默认发送匿名使用统计（不含文件内容与路径）。设 `DO_NOT_TRACK=1` 或配置 `telemetry: false` 关闭。
+插件激活后默认发送匿名使用统计（不含文件内容与路径），发布包不声明 `postinstall` 脚本。设 `DO_NOT_TRACK=1` 或配置 `telemetry: false` 关闭遥测。
 
 ## 卸载
 

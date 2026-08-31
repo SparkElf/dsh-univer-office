@@ -1,7 +1,7 @@
-// Best-effort product telemetry. Four allowlisted events travel through the
+// Best-effort product telemetry. Three allowlisted events travel through the
 // Univer-owned proxy (https://univer.ai/api/telemetry/cli); the proxy holds the
 // only analytics credentials, and this client never carries a key. Telemetry
-// must never change install, startup, or uninstall behavior: every failure is
+// must never change startup or uninstall behavior: every failure is
 // swallowed, sends are bounded by a short timeout, and there is no retry.
 //
 // Deduplication is local-only, recorded in one state file before the first
@@ -18,12 +18,11 @@ export const TELEMETRY_STATE_VERSION = 1
 export const TELEMETRY_TIMEOUT_MS = 5_000
 
 export type TelemetryEventName =
-  | 'dsh_plugin_postinstall'
   | 'dsh_plugin_activated'
   | 'dsh_plugin_daily_active'
   | 'dsh_plugin_uninstall_hook'
 
-export type TelemetryEventSource = 'postinstall' | 'uninstall-hook' | 'host-activate'
+export type TelemetryEventSource = 'uninstall-hook' | 'host-activate'
 
 /** Version and commit recorded at build time by scripts/build.mjs. */
 export interface TelemetryBuildInfo {
@@ -36,7 +35,6 @@ export interface TelemetryState {
   readonly anonymousInstallId: string
   /** Mirrored from the `telemetry` config so hook-fired sends honor it too. */
   readonly disabled?: boolean
-  readonly postinstallAttemptedAt?: string
   readonly activatedAttemptedAt?: string
   readonly dailyActiveSentDate?: string
   readonly version: typeof TELEMETRY_STATE_VERSION
@@ -299,13 +297,10 @@ function markTelemetryEvent(input: {
     if (state.dailyActiveSentDate === date) return undefined
     return { ...state, dailyActiveSentDate: date, version: TELEMETRY_STATE_VERSION }
   }
-  if (event === 'dsh_plugin_postinstall' && state.postinstallAttemptedAt !== undefined)
-    return undefined
   if (event === 'dsh_plugin_activated' && state.activatedAttemptedAt !== undefined) return undefined
   return {
     ...state,
-    [event === 'dsh_plugin_postinstall' ? 'postinstallAttemptedAt' : 'activatedAttemptedAt']:
-      now.toISOString(),
+    activatedAttemptedAt: now.toISOString(),
     version: TELEMETRY_STATE_VERSION
   }
 }
@@ -323,7 +318,6 @@ export function parseTelemetryState(json: string): TelemetryState {
     throw new Error('Invalid telemetry anonymous install id.')
   }
   const activatedAttemptedAt = readTimestamp(value.activatedAttemptedAt)
-  const postinstallAttemptedAt = readTimestamp(value.postinstallAttemptedAt)
   const dailyActiveSentDate =
     typeof value.dailyActiveSentDate === 'string' && value.dailyActiveSentDate.length > 0
       ? value.dailyActiveSentDate
@@ -332,7 +326,6 @@ export function parseTelemetryState(json: string): TelemetryState {
     anonymousInstallId: value.anonymousInstallId,
     ...(activatedAttemptedAt === undefined ? {} : { activatedAttemptedAt }),
     ...(value.disabled === true ? { disabled: true } : {}),
-    ...(postinstallAttemptedAt === undefined ? {} : { postinstallAttemptedAt }),
     ...(dailyActiveSentDate === undefined ? {} : { dailyActiveSentDate }),
     version: TELEMETRY_STATE_VERSION
   }
@@ -375,7 +368,7 @@ async function writeTelemetryState(input: {
     await move(tempPath, input.path)
     return true
   } catch {
-    // Telemetry state must never affect install or plugin activation.
+    // Telemetry state must never affect plugin activation or uninstall.
     return false
   }
 }
