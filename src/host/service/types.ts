@@ -56,6 +56,7 @@ export type UnitOperationRequest = ScopedFileRequest & (
 
 /** Request for inspecting one Unit. */
 export interface InspectUnitContentRequest extends ScopedFileRequest {
+  readonly elementIds?: readonly string[]
   readonly unitId: UnitId
   readonly range?: string
   readonly worktreeId?: WorktreeId
