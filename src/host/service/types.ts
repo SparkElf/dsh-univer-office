@@ -24,8 +24,15 @@ export interface FileStatusRequest extends ScopedFileRequest {
   readonly unitId?: UnitId
 }
 
-/** Request for creating an empty Univer file. */
-export interface NewUniverFileRequest extends ScopedFileRequest {}
+/** Trusted read-only template directory contributed by one Host plugin. */
+export interface UniverTemplateRootRegistration {
+  readonly root: string
+}
+
+/** Request for creating an empty Univer file or copying an existing template. */
+export interface NewUniverFileRequest extends ScopedFileRequest {
+  readonly templateFile?: UniverFilePath
+}
 
 /** Request for a browser worktree lifecycle decision. */
 export interface WorktreeActionRequest extends ScopedFileRequest {
@@ -224,6 +231,7 @@ export interface UniverServiceMethods {
   unitContentStatus(): Promise<'bundled' | 'unavailable'>
   fileState(request: FileStateRequest): Promise<FileState>
   worktreeAction(request: WorktreeActionRequest): Promise<WorktreeActionResult>
+  registerTemplateRoot(registration: UniverTemplateRootRegistration): () => void
   newFile(request: NewUniverFileRequest, signal?: AbortSignal): Promise<UniverOperationResult>
   status(request: FileStatusRequest, signal?: AbortSignal): Promise<UniverOperationResult>
   worktree(request: WorktreeOperationRequest, signal?: AbortSignal): Promise<UniverOperationResult>

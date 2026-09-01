@@ -10,7 +10,8 @@ Use the structured `univer_*` tools whenever the task creates, reads, changes, c
 ## Start immediately
 
 - Existing `.univer`: call `univer_status` before selecting a Unit or worktree.
-- New `.univer`: call `univer_new`, then `univer_worktree` with `action: "create"`.
+- New empty `.univer`: call `univer_new`, then `univer_worktree` with `action: "create"`.
+- New file from an existing template: call `univer_new` with `templateFile`, call `univer_status` to discover the copied Units, then create a worktree. The template must be inside the current workspace or a trusted root registered by another Host plugin; the target remains workspace-confined and non-overwriting.
 - Office source (`.xlsx`, `.csv`, `.tsv`, `.docx`, `.pptx`): create the target `.univer` and draft worktree, then call `univer_import`.
 - Before authoring content, load the matching Unit skill: `univer-sheet`, `univer-doc`, `univer-slide`, `univer-base`, or `univer-board`.
 - For an Embed, also load `univer-embed`. For formulas that read another Unit, also load `univer-cross-unit-formula`.
@@ -77,7 +78,7 @@ Never reopen or reuse a merged or discarded worktree; create a new worktree inst
 
 | Stage | Tool | Use |
 | --- | --- | --- |
-| Start | `univer_new` | Create an empty `.univer`; never overwrites and never creates an implicit Unit. |
+| Start | `univer_new` | Create an empty `.univer` or copy an authorized workspace/registered-root template; never overwrites. |
 | Start | `univer_status` | List trunk Units and worktrees, or inspect one explicit scope. |
 | Start | `univer_worktree` | `create`, `ready`, `reopen`, `merge`, or `discard`. |
 | Start | `univer_unit` | Create or remove a Sheet, Doc, Slide, Base, or Board in a draft worktree. |

@@ -107,6 +107,11 @@ export interface DiscardResponse extends ErrorEnvelope {
   ok: true;
 }
 
+/** 低层按地址创建 univerfile 的请求；templateFile 省略时创建空容器。 */
+export interface CreateUniverfileRequest {
+  readonly templateFile?: string;
+}
+
 /** 低层按地址创建 univerfile 的响应;已存在 → HTTP 409,不存在的查询 → HTTP 404。 */
 export interface CreateUniverfileResponse extends ErrorEnvelope {}
 

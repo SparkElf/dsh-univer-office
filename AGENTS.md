@@ -69,7 +69,7 @@ Run `pnpm run typecheck` for TypeScript changes and `git diff --check` before ev
 - Content writes require an explicit `draft` worktree. `ready` and `reopen` are normal agent operations. `merge` and `discard` require an explicit user request plus DSH approval and must never be automatic cleanup.
 - `merged` and `discarded` are terminal. Preserve their historical review projection, but remove live windows and mutation controls.
 - Bind every browser query and mutation to both the DSH session and workspace scope. Caches, polling, window deduplication, and review state must never leak across sessions.
-- Authorize every file, import, export, screenshot output, and SVG resource against the explicit tool/session workspace, then verify it again with `realpath` at the Provider boundary. A shared Gateway process does not grant shared file access.
+- Authorize every target, import, export, screenshot output, and SVG resource against the explicit tool/session workspace, then verify it again with `realpath` at the Provider boundary. A model-supplied template source may also resolve under a read-only root registered by a trusted Host plugin; reject symlink escapes and stage it inside the workspace before Gateway use. A shared Gateway process does not grant shared file access.
 - Concurrent Gateway starts share one startup operation. Failure, early exit, and unload must clear ownership and allow retry. Stop only subprocesses started by this plugin, skip occupied ports, and verify the health endpoint identity.
 - Cancellation and teardown must reach quiescence: reject new notifications, abort or kill owned work, and await Worker, browser, and subprocess exit. One clear owner manages settlement and cleanup for each asynchronous operation.
 - `univer_screenshot` may return model-visible PNG attachments only when the current model supports image input and every output path is authorized. Claim visual verification only for images actually inspected; structural readback and Slide lint are not pixel-level proof.
@@ -79,6 +79,7 @@ Run `pnpm run typecheck` for TypeScript changes and `git diff --check` before ev
 
 - Use ESM, explicit `.ts` relative imports, and top-level `import type` declarations. Keep `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, and `verbatimModuleSyntax` passing.
 - Do not bypass type safety with broad assertions or unexplained `any`.
+- For Univer feature work, preserve existing security invariants but do not add security mechanisms, permission layers, fallbacks, extra validation, or defensive orchestration unless the current user request explicitly authorizes them.
 - Handle closed unions exhaustively by discriminant.
 - Define stable errors in the layer that owns the failure. HTTP and tool Consumers map those errors without parsing messages or exposing stacks, internal absolute paths, or raw subprocess output.
 - Comments and JSDoc explain non-obvious behavior, failure modes, timing, ownership, or security constraints. Do not restate code or preserve reasoning transcripts. An empty `catch` must name the expected failure it ignores.

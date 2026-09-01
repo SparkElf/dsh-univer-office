@@ -12,6 +12,7 @@ export type {
   ReopenResponse,
   MergeResponse,
   DiscardResponse,
+  CreateUniverfileRequest,
   CreateUniverfileResponse,
   WorktreeLifecycleEvent,
   MergeUnitStatus,

@@ -12,6 +12,7 @@ export { Config, resolveConfig } from './config.ts'
 export type { UniverConfig }
 export { GatewayUniverService } from './provider/gateway-univer-service.ts'
 export { UniverService } from './service/univer-service.ts'
+export type { UniverTemplateRootRegistration } from './service/types.ts'
 export { createUniverRouter } from './webServer/router.ts'
 export {
   captureTelemetry,

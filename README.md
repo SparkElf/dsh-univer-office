@@ -149,7 +149,7 @@ DSH selects these tools automatically; you normally do not need to call them man
 
 | Tool | Purpose |
 | --- | --- |
-| `univer_new` | Create an empty `.univer` file without overwriting an existing file |
+| `univer_new` | Create an empty `.univer` file or copy an authorized workspace/registered-root template without overwriting |
 | `univer_status` | View the content and draft status of a file |
 | `univer_worktree` | Create, submit, revise, approve, or discard an isolated draft |
 | `univer_unit` | Add or remove Sheet, Doc, Slide, Base, or Board content |

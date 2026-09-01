@@ -19,6 +19,7 @@ export abstract class UniverService extends Service implements UniverServiceMeth
   abstract unitContentStatus(): ReturnType<UniverServiceMethods['unitContentStatus']>
   abstract fileState(...args: Parameters<UniverServiceMethods['fileState']>): ReturnType<UniverServiceMethods['fileState']>
   abstract worktreeAction(...args: Parameters<UniverServiceMethods['worktreeAction']>): ReturnType<UniverServiceMethods['worktreeAction']>
+  abstract registerTemplateRoot(...args: Parameters<UniverServiceMethods['registerTemplateRoot']>): ReturnType<UniverServiceMethods['registerTemplateRoot']>
   abstract newFile(...args: Parameters<UniverServiceMethods['newFile']>): ReturnType<UniverServiceMethods['newFile']>
   abstract status(...args: Parameters<UniverServiceMethods['status']>): ReturnType<UniverServiceMethods['status']>
   abstract worktree(...args: Parameters<UniverServiceMethods['worktree']>): ReturnType<UniverServiceMethods['worktree']>

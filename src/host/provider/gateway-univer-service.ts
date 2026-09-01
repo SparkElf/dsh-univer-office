@@ -23,6 +23,7 @@ import type {
   CompileSvgRequest,
   JsonValue,
   NewUniverFileRequest,
+  UniverTemplateRootRegistration,
   UnitOperationRequest,
   UniverApiResult,
   UniverOperationResult,
@@ -40,6 +41,7 @@ import { WorktreeOperations } from './worktree-operations.ts'
 import { RenderOperations } from './render-operations.ts'
 import { RenderSourceOperations } from './render-source-operations.ts'
 import { ResourceOperations } from './resource-operations.ts'
+import { TemplateRootRegistry } from './template-root-registry.ts'
 
 /** Local Service Provider backed by the bundled Gateway and Unit content worker. */
 export class GatewayUniverService extends UniverService {
@@ -52,6 +54,7 @@ export class GatewayUniverService extends UniverService {
   private readonly stateCache: StateCache<string, FileState>
   private readonly unitCache: StateCache<string, readonly ChangedUnit[]>
   private readonly api: ApiReference
+  private readonly templateRoots = new TemplateRootRegistry()
 
   constructor(ctx: Context, private readonly config: ResolvedConfig) {
     super(ctx)
@@ -115,13 +118,28 @@ export class GatewayUniverService extends UniverService {
     }
   }
 
-  /** Create one empty Univer container without an implicit Unit. */
+  /** Register one trusted read-only template directory for the current Host lifecycle. */
+  registerTemplateRoot(registration: UniverTemplateRootRegistration): () => void {
+    return this.templateRoots.register(registration)
+  }
+
+  /** Create one empty Univer container or copy an existing template without adding an implicit Unit. */
   async newFile(request: NewUniverFileRequest, signal?: AbortSignal): Promise<UniverOperationResult> {
     await assertAuthorizedPath(request.workspace, request.file, false)
-    signal?.throwIfAborted()
-    const gateway = await this.requireGateway()
-    const result = await new GatewayFileApi(new GatewayClient(gateway, this.config.gatewayMutationTimeoutMs)).create(request.file)
-    requireGatewaySuccess(result, 'Gateway rejected the Univer file creation.')
+    const template = request.templateFile === undefined
+      ? undefined
+      : await this.templateRoots.prepare(request.workspace, request.templateFile)
+    try {
+      signal?.throwIfAborted()
+      const gateway = await this.requireGateway()
+      const result = await new GatewayFileApi(new GatewayClient(gateway, this.config.gatewayMutationTimeoutMs)).create(
+        request.file,
+        template?.file,
+      )
+      requireGatewaySuccess(result, 'Gateway rejected the Univer file creation.')
+    } finally {
+      await template?.cleanup()
+    }
     signal?.throwIfAborted()
     this.stateCache.delete(request.file)
     return {
@@ -360,6 +378,7 @@ export class GatewayUniverService extends UniverService {
   async dispose(): Promise<void> {
     this.stateCache.clear()
     this.unitCache.clear()
+    this.templateRoots.clear()
     await this.gatewaySupervisor.dispose()
   }
 

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, realpathSync } from "node:fs";
+import { constants as fsConstants, copyFileSync, existsSync, mkdirSync, realpathSync } from "node:fs";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { CollabService } from "./collab-service.js";
 import { EventHub } from "./transport/events.js";
@@ -102,6 +102,18 @@ export class UniverfileManager {
     return this._open(normalized, true);
   }
 
+  /** Create a new file from an existing workspace-confined `.univer` template. */
+  public createUniverfileFromTemplate(rawPath: string, rawTemplatePath: string): Univerfile {
+    const normalized = this.prepareNewUniverfilePath(rawPath);
+    const template = this._normalizeUniverfile(rawTemplatePath);
+    if (!existsSync(template)) {
+      throw new UniverfileNotFoundError(`univerfile template not found: ${template}`);
+    }
+    mkdirSync(dirname(normalized), { recursive: true });
+    copyFileSync(template, normalized, fsConstants.COPYFILE_EXCL);
+    return this._open(normalized, false);
+  }
+
   /** Validate and normalize a new `.univer` path without creating or opening it. */
   public prepareNewUniverfilePath(rawPath: string): string {
     const normalized = this._normalizeUniverfile(rawPath);
@@ -128,8 +140,11 @@ export class UniverfileManager {
   }
 
   /** Decode a `base64url(univerfile)` key, then create the univerfile. */
-  public createByKey(key: string): Univerfile {
-    return this.createUniverfile(this._decodeKey(key));
+  public createByKey(key: string, templatePath?: string): Univerfile {
+    const target = this._decodeKey(key);
+    return templatePath === undefined
+      ? this.createUniverfile(target)
+      : this.createUniverfileFromTemplate(target, templatePath);
   }
 
   /** Decode and validate a `base64url(univerfile)` key without opening or creating the file. */

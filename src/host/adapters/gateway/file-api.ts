@@ -20,9 +20,9 @@ export class GatewayFileApi {
     return this.client.get(`/uf/${fileKeyOf(file)}/units`)
   }
 
-  /** Create an empty Univer file in the bundled collaboration store. */
-  create(file: string): Promise<JsonValue> {
-    return this.client.post(`/uf/${fileKeyOf(file)}`, {})
+  /** Create an empty Univer file or copy an existing template in the bundled collaboration store. */
+  create(file: string, templateFile?: string): Promise<JsonValue> {
+    return this.client.post(`/uf/${fileKeyOf(file)}`, templateFile === undefined ? {} : { templateFile })
   }
 
   /** Create the first trunk Unit after the file container exists. */

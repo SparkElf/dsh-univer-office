@@ -135,7 +135,8 @@ async function dispatch(
     // Low-level addressed create route. The local CLI chooses the absolute path before calling it.
     if (rest.length === 0 && method === "POST") {
       try {
-        manager.createByKey(key);
+        const input = requireCreateUniverfileBody(await readJsonBody(req));
+        manager.createByKey(key, input.templateFile);
         sendJson(res, 200, { error: { code: 1, message: "" } });
       } catch (error) {
         sendUniverfileError(res, error);
@@ -1001,6 +1002,16 @@ function sendUniverfileError(res: ServerResponse, error: unknown): void {
 function numType(raw: string | undefined): number {
   const n = Number(raw);
   return Number.isFinite(n) ? n : SHEET_TYPE;
+}
+
+function requireCreateUniverfileBody(body: unknown): { readonly templateFile?: string } {
+  if (body === undefined) return {};
+  if (!isRecord(body)) throw new UniverfileError("request body must be an object");
+  if (body.templateFile === undefined) return {};
+  if (typeof body.templateFile !== "string" || body.templateFile.length === 0) {
+    throw new UniverfileError("templateFile must be a non-empty string");
+  }
+  return { templateFile: body.templateFile };
 }
 
 function requireDraftWorktree(worktreeId: string, status: string): void {

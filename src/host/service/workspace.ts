@@ -23,6 +23,16 @@ export async function resolveNewUniverPath(cwd: string, value: string): Promise<
   return { ...resolved, path: univerFilePath(resolved.path) }
 }
 
+/** Resolve an existing template candidate; the Provider authorizes workspace or registered-root access. */
+export async function resolveTemplateUniverPath(cwd: string, value: string): Promise<UniverFilePath> {
+  if (value.trim().length === 0) throw new UniverError('template path is required', 'INVALID_FILE_PATH')
+  const workspace = await realpath(cwd)
+  const candidate = isAbsolute(value) ? resolve(value) : resolve(workspace, value)
+  const canonical = await realpath(candidate)
+  requireUniverExtension(canonical)
+  return univerFilePath(canonical)
+}
+
 /** Resolve an existing import source inside one workspace. */
 export function resolveExistingWorkspacePath(cwd: string, value: string): Promise<AuthorizedPath> {
   return resolveAuthorizedPath(cwd, value, true)

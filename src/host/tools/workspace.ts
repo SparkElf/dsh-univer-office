@@ -5,6 +5,7 @@ import {
   resolveExistingWorkspacePath,
   resolveNewUniverPath,
   resolveNewWorkspacePath,
+  resolveTemplateUniverPath,
 } from '../service/workspace.ts'
 
 /** Resolve the calling agent's workspace or fail closed for detached calls. */
@@ -19,6 +20,11 @@ export function toolWorkspace(exec: ToolRunContext): string {
 /** Resolve an existing Univer file for one tool execution. */
 export function existingToolFile(exec: ToolRunContext, file: string) {
   return resolveExistingUniverPath(toolWorkspace(exec), file)
+}
+
+/** Resolve an existing Univer template candidate for Provider authorization. */
+export function templateToolFile(exec: ToolRunContext, file: string) {
+  return resolveTemplateUniverPath(toolWorkspace(exec), file)
 }
 
 /** Resolve a new Univer target for one tool execution. */

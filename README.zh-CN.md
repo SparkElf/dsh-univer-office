@@ -149,7 +149,7 @@ DSH 会自动选择这些工具，日常使用不需要手动调用。
 
 | 工具 | 作用 |
 | --- | --- |
-| `univer_new` | 创建空 `.univer` 文件，不覆盖已有文件 |
+| `univer_new` | 创建空 `.univer` 文件或复制工作区/注册只读根中的已授权模板，不覆盖已有文件 |
 | `univer_status` | 查看文件内容与草稿状态 |
 | `univer_worktree` | 创建、提交、继续修改、确认或放弃隔离草稿 |
 | `univer_unit` | 添加或删除 Sheet、Doc、Slide、多维表格或 Board 内容 |

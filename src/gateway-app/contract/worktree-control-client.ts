@@ -2,6 +2,7 @@ import { encodeUniverfile } from "./univerfile.js";
 import type {
   CreateWorktreeRequest,
   CreateWorktreeResponse,
+  CreateUniverfileRequest,
   CreateUniverfileResponse,
   DiscardResponse,
   ErrorEnvelope,
@@ -69,8 +70,8 @@ export class WorktreeControlClient {
   }
 
   /** 低层按地址创建 univerfile `.univer`(`POST /uf/<enc>`);已存在 → HTTP 409。 */
-  public createUniverfile(): Promise<CreateUniverfileResponse> {
-    return this.postJson<CreateUniverfileResponse>(this.base, {});
+  public createUniverfile(request: CreateUniverfileRequest = {}): Promise<CreateUniverfileResponse> {
+    return this.postJson<CreateUniverfileResponse>(this.base, request);
   }
 
   /** Copy-only package optimization. Every optimization pass is explicit in the request. */
