@@ -12,17 +12,18 @@ export { Config, resolveConfig } from './config.ts'
 export type { UniverConfig }
 export { GatewayUniverService } from './provider/gateway-univer-service.ts'
 export { UniverService } from './service/univer-service.ts'
+export type { UniverTemplateRootRegistration } from './service/types.ts'
 export { createUniverRouter } from './webServer/router.ts'
 export {
   captureTelemetry,
   parseTelemetryState,
   resolveTelemetryStatePath,
-  runHostTelemetry,
+  runHostTelemetry
 } from './telemetry/product-telemetry.ts'
 export type {
   TelemetryCapture,
   TelemetryState,
-  TelemetryStateIo,
+  TelemetryStateIo
 } from './telemetry/product-telemetry.ts'
 export * from '../shared/wire/actions.ts'
 export * from '../shared/wire/state.ts'
