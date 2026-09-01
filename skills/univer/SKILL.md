@@ -107,7 +107,7 @@ Do not redeclare injected variables. Use `code` only for a small snippet. For mu
 Execution is Node ESM: `require` is unavailable, while dynamic `import()` and `Buffer` are available. For an explicit local workspace image, generate its data URI inside the execution instead of putting Base64 in the conversation:
 
 ```js
-const { readFile } = await import('node:fs/promises')
+const { readFile } = await import("node:fs/promises")
 const bytes = await readFile('/absolute/session/workspace/image.png')
 const imageDataUri = `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`
 ```
