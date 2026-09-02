@@ -185,25 +185,42 @@ function applyResult(state: UniverTurnState, data: SessionEvent<'tool/result'>['
     const operation = file.operations.find((entry) => entry.callId === callId)
     if (operation !== undefined) matched = operation
   }
-  if (matched === undefined && structured === null) return state
+  const phase = data.error === undefined && data.message.content[0].isError !== true ? 'succeeded' : 'failed'
+  if (matched === undefined) {
+    if (structured === null) return state
+    return nestedUniverResults(structured).reduce((current, result, index) => {
+      const operation = operationFromResult(result, `${callId}:${index}`, phase)
+      return operation === null ? current : { ...current, files: appendOperation(current.files, operation) }
+    }, state)
+  }
+  const operation = operationFromResult(structured, callId, phase, matched)
+  if (operation === null) return state
+  const withoutCall = state.files.flatMap((entry) => {
+    const operations = entry.operations.filter((candidate) => candidate.callId !== callId)
+    return operations.length === 0 ? [] : [{ ...entry, operations }]
+  })
+  return { ...state, files: appendOperation(withoutCall, operation) }
+}
+
+function operationFromResult(
+  structured: Record<string, unknown> | null,
+  callId: string,
+  phase: UniverOperationPhase,
+  matched?: UniverTurnOperation,
+): UniverTurnOperation | null {
   const result = structured === null || !isRecord(structured.result) ? null : structured.result
   const name = matched?.name ?? operationName(typeof structured?.operation === 'string' ? `univer_${structured.operation.replace('-', '_')}` : '')
   const file = typeof structured?.file === 'string' ? structured.file : matched?.file
-  if (name === null || name === undefined || file === undefined) return state
-  const operation: UniverTurnOperation = {
+  if (name === null || name === undefined || file === undefined) return null
+  return {
     callId,
     name,
     action: typeof result?.action === 'string' ? result.action : matched?.action ?? null,
     file,
     worktreeId: typeof result?.worktreeId === 'string' ? result.worktreeId : matched?.worktreeId ?? null,
     unitId: typeof result?.unitId === 'string' ? result.unitId : matched?.unitId ?? null,
-    phase: data.error === undefined && data.message.content[0].isError !== true ? 'succeeded' : 'failed',
+    phase,
   }
-  const withoutCall = state.files.flatMap((entry) => {
-    const operations = entry.operations.filter((candidate) => candidate.callId !== callId)
-    return operations.length === 0 ? [] : [{ ...entry, operations }]
-  })
-  return { ...state, files: appendOperation(withoutCall, operation) }
 }
 
 function appendOperation(files: readonly UniverTurnFile[], operation: UniverTurnOperation): UniverTurnFile[] {
@@ -221,6 +238,17 @@ function structuredResult(data: SessionEvent<'tool/result'>['data']): Record<str
   const text = data.message.content[0].content.flatMap((block) => block.type === 'text' ? [block.text] : []).join('\n')
   const firstBrace = text.indexOf('{')
   return firstBrace === -1 ? null : parseRecord(text.slice(firstBrace))
+}
+
+function nestedUniverResults(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) return value.flatMap(nestedUniverResults)
+  if (!isRecord(value)) return []
+  if (
+    typeof value.operation === 'string' &&
+    operationName(`univer_${value.operation.replace('-', '_')}`) !== null &&
+    typeof value.file === 'string'
+  ) return [value]
+  return Object.values(value).flatMap(nestedUniverResults)
 }
 
 function operationName(name: string): UniverOperationName | null {
