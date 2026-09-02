@@ -4,6 +4,7 @@ import type { FileState, WorktreeStatus } from '../../shared/wire/state.ts'
 import { startGateway } from '../api/univer-api.ts'
 import { basename } from '../conversation/univer-turn-definition.ts'
 import { localizeViewerUrl } from '../viewer-locale.ts'
+import { withViewerFonts } from '../viewer-fonts.ts'
 import type { ViewerLocale } from '../viewer-locale.ts'
 import { UnitChips, unitViewerUrl } from './unit-chips.tsx'
 
@@ -65,7 +66,7 @@ export function WorktreeWindow(props: WorktreeWindowProps): React.ReactElement {
     : worktree === undefined
       ? undefined
       : unitViewerUrl(worktree.status === 'ready' ? worktree.mergeUrl : worktree.worktreeUrl, units, selectedUnit, worktree.status === 'ready' ? 'merge' : 'worktree')
-  const url = target === undefined ? undefined : localizeViewerUrl(target, props.viewerLocale)
+  const url = target === undefined ? undefined : localizeViewerUrl(withViewerFonts(target), props.viewerLocale)
   const title = worktree?.name || worktree?.worktreeId || props.worktreeId || props.t('dock.currentVersion')
   const status: WorktreeStatus | 'trunk' | 'loading' | 'unavailable' = props.state === undefined
     ? 'loading'

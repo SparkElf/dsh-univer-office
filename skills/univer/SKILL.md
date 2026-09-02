@@ -10,7 +10,8 @@ Use the structured `univer_*` tools whenever the task creates, reads, changes, c
 ## Start immediately
 
 - Existing `.univer`: call `univer_status` before selecting a Unit or worktree.
-- New `.univer`: call `univer_new`, then `univer_worktree` with `action: "create"`.
+- New empty `.univer`: call `univer_new`, then `univer_worktree` with `action: "create"`.
+- New file from an existing `.univer` template: call `univer_new` with `templateFile`, call `univer_status` to discover the copied Units, then create a worktree. The template must be inside the current workspace or a trusted root registered by another Host plugin; the target remains workspace-confined and non-overwriting.
 - Office source (`.xlsx`, `.csv`, `.tsv`, `.docx`, `.pptx`): create the target `.univer` and draft worktree, then call `univer_import`.
 - Before authoring content, load the matching Unit skill: `univer-sheet`, `univer-doc`, `univer-slide`, `univer-base`, or `univer-board`.
 - For an Embed, also load `univer-embed`. For formulas that read another Unit, also load `univer-cross-unit-formula`.
@@ -75,21 +76,21 @@ Never reopen or reuse a merged or discarded worktree; create a new worktree inst
 
 ## Tool map
 
-| Stage | Tool | Use |
-| --- | --- | --- |
-| Start | `univer_new` | Create an empty `.univer`; never overwrites and never creates an implicit Unit. |
-| Start | `univer_status` | List trunk Units and worktrees, or inspect one explicit scope. |
-| Start | `univer_worktree` | `create`, `ready`, `reopen`, `merge`, or `discard`. |
-| Start | `univer_unit` | Create or remove a Sheet, Doc, Slide, Base, or Board in a draft worktree. |
-| Start | `univer_import` | Import local xlsx, csv, tsv, docx, or pptx as a new Unit. |
-| Write | `univer_execute` | Run version-matched Facade JavaScript against one Unit in a draft worktree. |
-| Write | `univer_compile_svg` | Compile workspace SVG into one explicit Slide page with browser text metrics. |
-| Verify | `univer_inspect` | Read structured Unit content from trunk or one worktree. |
-| Verify | `univer_lint` | Check Slide text off-page, container escape, and text overlap. |
-| Verify | `univer_screenshot` | Render Sheet, Doc, Slide, Base, or Board PNG evidence and return it to an image-capable model. |
-| Reference | `univer_api` | Find an unknown name, or show a known class, API, or type. |
-| Reference | `univer_resources` | List/find/read/export bundled SVG resources or clear their download cache. |
-| Deliver | `univer_export` | Export Sheet/Base to xlsx/csv/tsv, Doc to docx, or Slide to pptx. |
+| Stage     | Tool                 | Use                                                                                                   |
+| --------- | -------------------- | ----------------------------------------------------------------------------------------------------- |
+| Start     | `univer_new`         | Create an empty `.univer` or copy an authorized workspace/registered-root template; never overwrites. |
+| Start     | `univer_status`      | List trunk Units and worktrees, or inspect one explicit scope.                                        |
+| Start     | `univer_worktree`    | `create`, `ready`, `reopen`, `merge`, or `discard`.                                                   |
+| Start     | `univer_unit`        | Create or remove a Sheet, Doc, Slide, Base, or Board in a draft worktree.                             |
+| Start     | `univer_import`      | Import local xlsx, csv, tsv, docx, or pptx as a new Unit.                                             |
+| Write     | `univer_execute`     | Run version-matched Facade JavaScript against one Unit in a draft worktree.                           |
+| Write     | `univer_compile_svg` | Compile workspace SVG into one explicit Slide page with browser text metrics.                         |
+| Verify    | `univer_inspect`     | Read structured Unit content from trunk or one worktree.                                              |
+| Verify    | `univer_lint`        | Check Slide text off-page, container escape, and text overlap.                                        |
+| Verify    | `univer_screenshot`  | Render Sheet, Doc, Slide, Base, or Board PNG evidence and return it to an image-capable model.        |
+| Reference | `univer_api`         | Find an unknown name, or show a known class, API, or type.                                            |
+| Reference | `univer_resources`   | List/find/read/export bundled SVG resources or clear their download cache.                            |
+| Deliver   | `univer_export`      | Export Sheet/Base to xlsx/csv/tsv, Doc to docx, or Slide to pptx.                                     |
 
 ## Facade execution
 
@@ -106,9 +107,9 @@ Do not redeclare injected variables. Use `code` only for a small snippet. For mu
 Execution is Node ESM: `require` is unavailable, while dynamic `import()` and `Buffer` are available. For an explicit local workspace image, generate its data URI inside the execution instead of putting Base64 in the conversation:
 
 ```js
-const { readFile } = await import("node:fs/promises");
-const bytes = await readFile("/absolute/session/workspace/image.png");
-const imageDataUri = `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`;
+const { readFile } = await import("node:fs/promises")
+const bytes = await readFile('/absolute/session/workspace/image.png')
+const imageDataUri = `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`
 ```
 
 Read only task assets inside the session workspace. Do not print or return the data URI. Resolve exact Facade methods with `univer_api`, check boolean/null returns, and retain stable IDs needed by later operations.

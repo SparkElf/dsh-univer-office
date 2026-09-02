@@ -9,9 +9,12 @@ import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { applyDocumentAppearance, resolveAppearance, setAppearance } from "./appearance";
 import { readLocation } from "./core/config";
+import { installExternalFontRegistration } from "./core/external-fonts";
 import { applyDocumentLang, resolveLang, setLang, t } from "./i18n";
 import { App } from "./ui/app";
 import { BootCard, FatalNotice } from "./ui/boot";
+
+await installExternalFontRegistration();
 
 await setLang(resolveLang());
 applyDocumentLang();

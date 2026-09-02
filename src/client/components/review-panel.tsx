@@ -3,6 +3,7 @@ import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { FileState, WorktreeState, WorktreeStatus } from '../../shared/wire/state.ts'
 import { basename } from '../conversation/univer-turn-definition.ts'
 import { localizeViewerUrl } from '../viewer-locale.ts'
+import { withViewerFonts } from '../viewer-fonts.ts'
 import type { ViewerLocale } from '../viewer-locale.ts'
 import { UnitChips, unitViewerUrl } from './unit-chips.tsx'
 
@@ -35,7 +36,7 @@ export function ReviewPanel(props: {
       ? props.preferredUnitId
       : units[0]?.unitId
   const target = cardTarget(props.state, props.worktreeId, worktree, selectedUnit)
-  const url = target === undefined ? undefined : localizeViewerUrl(reviewPageUrl(target), props.viewerLocale)
+  const url = target === undefined ? undefined : localizeViewerUrl(withViewerFonts(reviewPageUrl(target)), props.viewerLocale)
   const title = worktree?.name || worktree?.worktreeId || props.t('dock.currentVersion')
   const merged = status === 'merged'
   const discarded = status === 'discarded'

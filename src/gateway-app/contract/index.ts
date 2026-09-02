@@ -12,6 +12,7 @@ export type {
   ReopenResponse,
   MergeResponse,
   DiscardResponse,
+  CreateUniverfileRequest,
   CreateUniverfileResponse,
   WorktreeLifecycleEvent,
   MergeUnitStatus,
@@ -25,8 +26,8 @@ export type {
   OptimizeUniverfileWorktrees,
   OptimizeUniverfileReport,
   OptimizeUniverfileRequest,
-  OptimizeUniverfileResponse,
-} from "./types.js";
+  OptimizeUniverfileResponse
+} from './types.js'
 
 export {
   GatewaySemanticErrorCode,
@@ -36,18 +37,18 @@ export {
   UNIT_TYPE_BASE,
   UNIT_TYPE_BOARD,
   SUPPORTED_UNIT_TYPES,
-  isSupportedUnitType,
-} from "./types.js";
+  isSupportedUnitType
+} from './types.js'
 
-export { encodeUniverfile, decodeUniverfile } from "./univerfile.js";
+export { encodeUniverfile, decodeUniverfile } from './univerfile.js'
 
-export { buildRuntimeConfig } from "./runtime-config.js";
+export { buildRuntimeConfig } from './runtime-config.js'
 export type {
   GatewayKeyRuntimeConfigInput,
   LocalRuntimeConfigInput,
   RuntimeConfigInput,
-  RuntimeConfigUrls,
-} from "./runtime-config.js";
+  RuntimeConfigUrls
+} from './runtime-config.js'
 
 export {
   GATEWAY_DESCRIPTOR_MEDIA_TYPE,
@@ -65,17 +66,17 @@ export {
   fetchGatewayDescriptor,
   isGatewayDescriptorContentType,
   isGatewayCapability,
-  resolveGatewayDescriptorViewUrl,
-} from "./gateway-descriptor.js";
+  resolveGatewayDescriptorViewUrl
+} from './gateway-descriptor.js'
 export type {
   GatewayCapability,
   GatewayDescriptor,
-  GatewayDescriptorValidationErrorCode,
-} from "./gateway-descriptor.js";
+  GatewayDescriptorValidationErrorCode
+} from './gateway-descriptor.js'
 
-export { WorktreeControlClient, WorktreeServerHttpError } from "./worktree-control-client.js";
+export { WorktreeControlClient, WorktreeServerHttpError } from './worktree-control-client.js'
 export type {
   GatewayKeyWorktreeControlClientOptions,
   LocalWorktreeControlClientOptions,
-  WorktreeControlClientOptions,
-} from "./worktree-control-client.js";
+  WorktreeControlClientOptions
+} from './worktree-control-client.js'

@@ -316,6 +316,42 @@ if (dockInjected.livePreview === undefined || settingsInjected.settings !== sett
   if (locationData === null || locationData.key !== 'univerTurn' || locationData.value.files.length !== 1) throw new Error('buildLocationData wrong')
 }
 
+// ---- PTC run_code results preserve nested Univer lifecycle order ----
+{
+  const def = conversationDefinition
+  const mkContext = (state) => ({ state, key: '', kind: 'univerTurn', id: '8', matches: [], start: undefined, current: new Map() })
+  const startMatch = { id: '8', role: 'start', event: { type: 'turn/start', data: { turn: 8 } }, location: { kind: 'turn', turn: 8 } }
+  let state = def.start({ state: undefined }, startMatch, { previous: () => undefined })
+  const nestedCall = {
+    id: '8', role: 'update', location: { kind: 'turn', turn: 8 },
+    event: { type: 'tool/call', data: { turn: 8, step: 1, callId: 'call-code', name: 'run_code', arguments: JSON.stringify({ code: 'nested Univer operations' }) } },
+  }
+  state = def.update(mkContext(state), nestedCall)
+  if (state.files.length !== 0) throw new Error('run_code call must wait for structured nested results')
+  const nestedResult = {
+    id: '8', role: 'update', location: { kind: 'turn', turn: 8 },
+    event: { type: 'tool/result', data: { turn: 8, step: 1, message: { content: [{
+      type: 'tool-result', toolCallId: 'call-code', content: [{ type: 'text', text: JSON.stringify({
+        created: { ok: true, operation: 'new', file: DEMO_FILE, result: { filePath: DEMO_FILE, created: true } },
+        draft: { ok: true, operation: 'worktree', file: DEMO_FILE, result: { action: 'create', worktreeId: WORKTREE, status: 'draft' } },
+        writes: [{ ok: true, operation: 'execute', file: DEMO_FILE, result: { worktreeId: WORKTREE, unitId: 'unit-ptc', revision: 2 } }],
+      }) }],
+    }] } } },
+  }
+  state = def.update(mkContext(state), nestedResult)
+  const operations = state.files[0]?.operations ?? []
+  if (
+    state.files.length !== 1 ||
+    operations.map((entry) => entry.name).join(',') !== 'new,worktree,execute' ||
+    operations[1]?.action !== 'create' ||
+    operations[1]?.worktreeId !== WORKTREE ||
+    operations[2]?.worktreeId !== WORKTREE ||
+    operations[2]?.unitId !== 'unit-ptc'
+  ) {
+    throw new Error('run_code nested Univer results did not preserve create-to-draft lifecycle')
+  }
+}
+
 // ---- render harness ----
 const t = (key) => localeDicts.dicts[activeLocale][key] ?? key
 let callSequence = 0
