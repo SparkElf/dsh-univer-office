@@ -28,7 +28,7 @@ function readExternalFonts(): ViewerFontResource[] {
 export async function installExternalFontRegistration(): Promise<void> {
   const resources = readExternalFonts();
   if (resources.length === 0) return;
-  const fonts = await Promise.all(
+  const results = await Promise.allSettled(
     resources.map((font) =>
       new FontFace(font.family, `url("${font.source}")`, {
         style: "normal",
@@ -36,6 +36,9 @@ export async function installExternalFontRegistration(): Promise<void> {
       }).load()
     )
   );
-  for (const font of fonts) document.fonts.add(font);
+  for (const result of results) {
+    if (result.status === "fulfilled") document.fonts.add(result.value);
+    else console.warn("[univer-viewer] external font failed to load; continuing with fallback fonts", result.reason);
+  }
   await document.fonts.ready;
 }
