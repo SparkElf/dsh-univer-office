@@ -1,50 +1,41 @@
-export const VIEWER_FONT_MESSAGE_TYPE = "dsh-univer/register-fonts";
+export const VIEWER_FONT_QUERY_PARAM = "dshFonts";
 
 interface ViewerFontResource {
   family: string;
   source: string;
 }
 
-interface ViewerFontMessage {
-  type: typeof VIEWER_FONT_MESSAGE_TYPE;
-  fonts: ViewerFontResource[];
+function readExternalFonts(): ViewerFontResource[] {
+  const raw = new URLSearchParams(location.search).get(VIEWER_FONT_QUERY_PARAM);
+  if (raw === null) return [];
+  const value: unknown = JSON.parse(raw);
+  if (
+    !Array.isArray(value) ||
+    !value.every(
+      (font) =>
+        typeof font === "object" &&
+        font !== null &&
+        typeof font.family === "string" &&
+        typeof font.source === "string"
+    )
+  ) {
+    throw new Error("invalid external Viewer font manifest");
+  }
+  return value as ViewerFontResource[];
 }
 
-const loads = new Map<string, Promise<FontFace>>();
-
-function isViewerFontMessage(value: unknown): value is ViewerFontMessage {
-  if (typeof value !== "object" || value === null) return false;
-  const message = value as Partial<ViewerFontMessage>;
-  return (
-    message.type === VIEWER_FONT_MESSAGE_TYPE &&
-    Array.isArray(message.fonts) &&
-    message.fonts.every(
-      (font) => typeof font?.family === "string" && typeof font.source === "string"
+/** Load external font binaries before Univer initializes and measures document text. */
+export async function installExternalFontRegistration(): Promise<void> {
+  const resources = readExternalFonts();
+  if (resources.length === 0) return;
+  const fonts = await Promise.all(
+    resources.map((font) =>
+      new FontFace(font.family, `url("${font.source}")`, {
+        style: "normal",
+        weight: "400",
+      }).load()
     )
   );
-}
-
-function loadFont(font: ViewerFontResource): Promise<FontFace> {
-  const key = font.family + "\n" + font.source;
-  const current = loads.get(key);
-  if (current !== undefined) return current;
-  const pending = new FontFace(font.family, `url("${font.source}")`, {
-    style: "normal",
-    weight: "400",
-  }).load();
-  loads.set(key, pending);
-  return pending;
-}
-
-/** Register font binaries supplied by the embedding DSH client inside this viewer document. */
-export function installExternalFontRegistration(): void {
-  window.addEventListener("message", (event: MessageEvent<unknown>) => {
-    if (event.source !== window.parent || !isViewerFontMessage(event.data)) return;
-    void Promise.all(event.data.fonts.map(loadFont))
-      .then((fonts) => {
-        for (const font of fonts) document.fonts.add(font);
-        window.dispatchEvent(new Event("resize"));
-      })
-      .catch((error) => console.error("[dsh-univer-office] external font load failed", error));
-  });
+  for (const font of fonts) document.fonts.add(font);
+  await document.fonts.ready;
 }

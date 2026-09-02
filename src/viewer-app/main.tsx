@@ -14,7 +14,7 @@ import { applyDocumentLang, resolveLang, setLang, t } from "./i18n";
 import { App } from "./ui/app";
 import { BootCard, FatalNotice } from "./ui/boot";
 
-installExternalFontRegistration();
+await installExternalFontRegistration();
 
 await setLang(resolveLang());
 applyDocumentLang();
