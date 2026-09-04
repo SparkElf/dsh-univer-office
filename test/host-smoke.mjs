@@ -25,6 +25,9 @@ const hostBundle = await readFile(new URL('../lib/index.js', import.meta.url), '
 if (!hostBundle.includes('ELECTRON_RUN_AS_NODE')) {
   throw new Error('Host bundle must set ELECTRON_RUN_AS_NODE so bundled Gateway/Worker entry scripts run as plain Node inside an Electron Desktop host')
 }
+if (/import\s*\{[^}]*settingsNamespace[^}]*\}\s*from\s*["']@deepseek-ai\/dsh-settings["']/.test(hostBundle)) {
+  throw new Error('Host bundle must not import settingsNamespace because supported DSH runtimes accept the namespace literal but do not export that helper')
+}
 try {
   resolveConfig({ gatewayPort: 0 })
   throw new Error('zero Gateway port must be rejected')
