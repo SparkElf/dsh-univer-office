@@ -368,11 +368,14 @@ const turnFile = (file, worktreeId = null, name = worktreeId === null ? 'status'
   file,
   operations: [{ ...operation(name, worktreeId, action, null, phase), file }],
 })
-const sessionWithTargets = (targets, running) => ({
-  sessionId: 'test-session-id',
-  running,
-  chat: { timeline: { turns: new Map([[3, { data: { get: (key) => (key === 'univerTurn' ? { files: targets.map((target) => turnFile(target.file, target.worktreeId)) } : undefined) } }]]) } },
-})
+const sessionWithTargets = (targets, running) => {
+  const files = targets.map((target) => turnFile(target.file, target.worktreeId))
+  return {
+    sessionId: 'test-session-id',
+    running,
+    chat: { timeline: { turns: new Map([[3, { data: { get: (key) => (key === 'univerTurn' ? { files } : undefined) } }]]) } },
+  }
+}
 const sessionWithFiles = (files, running, turns = new Map()) => ({
   sessionId: 'test-session-id',
   running,
@@ -531,6 +534,8 @@ render(sessionWithFiles([turnFile(DEMO_FILE, null, 'new')], true))
 await waitFor('new 主动拉起当前版本浮窗', () => q('.uvf_win') !== null && q('.uvf_frame')?.getAttribute('src') === ZH_LIVE_TRUNK_URL)
 if (q('.uvf_root')?.parentElement !== document.body) throw new Error('floating windows must portal outside the input dock')
 if (q('.uvf_chip')?.getAttribute('data-status') !== 'trunk') throw new Error('new window must identify the current version')
+q('[data-window-action=close]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+await waitFor('明确关闭 new 浮窗', () => q('.uvf_win') === null)
 render(sessionWithFiles([turnFile(DEMO_FILE, null, 'status')], true))
 await waitFor('纯读取不主动拉起浮窗', () => q('.uvf_win') === null)
 
@@ -728,10 +733,30 @@ if (q('.uvf_panel') === null) throw new Error('the unified Turn card must exist 
   await waitFor('关闭后浮窗消失', () => q('.uvf_win') === null)
 }
 
+// ---- scenario 2a: dismiss survives a session dock remount ----
+render(liveDraftSession)
+await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_100))
+if (q('.uvf_win') !== null) throw new Error('dismissed preview must stay closed after switching away and back to the session')
+
+// ---- scenario 2b: a new Turn opens only its new preview ----
+const nextTurnFile = turnFile(SECOND_FILE, null, 'new')
+const nextTurnSession = {
+  ...liveDraftSession,
+  chat: { timeline: { turns: new Map([
+    ...liveDraftSession.chat.timeline.turns,
+    [4, { data: { get: (key) => (key === 'univerTurn' ? { files: [nextTurnFile] } : undefined) } }],
+  ]) } },
+}
+render(nextTurnSession)
+await waitFor('新消息只打开新预览', () => qa('.uvf_win').length === 1 && q('.uvf_windowFile')?.textContent === 'second.univer')
+if (qa('.uvf_win').some((window) => window.getAttribute('aria-label')?.endsWith('demo.univer'))) {
+  throw new Error('a new message must not reopen previews dismissed from older Turns')
+}
+
 // ---- scenario 3: ready + session running → window stays with ready chip ----
 worktrees = [wt('ready')]
 render(sessionWithTargets([{ file: DEMO_FILE, worktreeId: WORKTREE }], true))
-await waitFor('ready 且运行中浮窗保留', () => q('.uvf_win') !== null)
+await waitFor('ready 且运行中浮窗保留', () => qa('.uvf_win').length === 1 && q('.uvf_windowFile')?.textContent === 'demo.univer' && q('.uvf_chip')?.textContent === '待确认')
 if ((q('.uvf_chip')?.textContent ?? '') !== '待确认') throw new Error('ready chip must say 待确认 while running')
 if (q('.uvf_panel') === null) throw new Error('the unified Turn card must exist while the session is running')
 
