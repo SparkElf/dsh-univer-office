@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
 import {
   DEFAULT_UNIVER_SETTINGS,
@@ -9,7 +9,7 @@ import {
 
 export const name = 'univer-settings'
 
-const namespace = settingsNamespace(UNIVER_SETTINGS_NAMESPACE)
+const namespace = UNIVER_SETTINGS_NAMESPACE as SettingsNamespace
 const SettingsSchema: z<UniverSettings> = z.object({
   autoOpenLivePreview: z.boolean().default(true)
 })
